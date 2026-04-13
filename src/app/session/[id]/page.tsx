@@ -265,15 +265,15 @@ export default function SessionPlayerPage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-white text-sm font-medium">
-                        {participant.guest_name || 'Guest'}
+                        {participant.guest_name || participant.user?.name || 'Guest'}
                       </p>
                       <p className="text-neutral-400 text-xs">
-                        {participant.status === 'active' ? '온라인' : '오프라인'}
+                        {participant.connection_status === 'connected' ? '온라인' : '오프라인'}
                       </p>
                     </div>
                     <div
                       className={`w-3 h-3 rounded-full ${
-                        participant.status === 'active'
+                        participant.connection_status === 'connected'
                           ? 'bg-green-500'
                           : 'bg-neutral-600'
                       }`}

@@ -105,6 +105,7 @@ export interface Participant {
   connection_status: 'connected' | 'disconnected' | 'offline';
   is_editing: boolean;
   last_activity: string;
+  guest_name?: string;
   user?: User;
 }
 

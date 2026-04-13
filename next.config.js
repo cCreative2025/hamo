@@ -11,9 +11,6 @@ const nextConfig = {
     };
     return config;
   },
-  experimental: {
-    optimizePackageImports: ['@supabase/supabase-js', 'konva', 'react-konva'],
-  },
 };
 
 module.exports = nextConfig;
