@@ -10,6 +10,7 @@ import { useSheetStore } from '@/stores/sheetStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAuth } from '@/hooks/useAuth';
 import { Sheet } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 export default function SheetsPage() {
   useAuth(true);
@@ -65,8 +66,48 @@ export default function SheetsPage() {
           <div className="mb-8">
             <SheetUploader
               onUpload={async (file, data) => {
-                // TODO: 실제 업로드 구현
-                console.log('Uploading:', { file, data });
+                if (!currentUser) throw new Error('로그인이 필요합니다');
+
+                // 1. Storage에 파일 업로드
+                const ext = file.name.split('.').pop();
+                const filePath = `${currentUser.id}/${Date.now()}.${ext}`;
+                const { error: uploadError } = await supabase.storage
+                  .from('sheets')
+                  .upload(filePath, file, { upsert: false });
+                if (uploadError) throw uploadError;
+
+                // 2. sheets 테이블에 메타데이터 저장
+                const { data: sheetData, error: sheetError } = await supabase
+                  .from('sheets')
+                  .insert({
+                    title: data.title,
+                    artist: data.artist,
+                    genre: data.genre,
+                    key: data.key,
+                    tempo: data.tempo,
+                    time_signature: data.time_signature,
+                    owner_id: currentUser.id,
+                  })
+                  .select()
+                  .single();
+                if (sheetError) throw sheetError;
+
+                // 3. sheet_versions에 파일 정보 저장
+                const fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
+                const { error: versionError } = await supabase
+                  .from('sheet_versions')
+                  .insert({
+                    sheet_id: sheetData.id,
+                    version_number: 1,
+                    file_path: filePath,
+                    file_type: fileType,
+                    file_size: file.size,
+                    uploaded_by: currentUser.id,
+                  });
+                if (versionError) throw versionError;
+
+                await loadSheets();
+                setShowUploader(false);
               }}
             />
           </div>
@@ -80,7 +121,7 @@ export default function SheetsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="악보 제목, 아티스트로 검색..."
-              className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
         </div>
