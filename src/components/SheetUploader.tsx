@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './Button';
 import { LoadingSpinner } from './LoadingSpinner';
 import { formatFileSize } from '@/lib/utils';
@@ -21,6 +21,8 @@ export interface SheetUploadData {
 
 export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoading }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [formData, setFormData] = useState<SheetUploadData>({
     title: '',
     artist: '',
@@ -30,6 +32,14 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
     time_signature: '',
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!file) { setThumbnail(null); return; }
+    if (!file.type.startsWith('image/')) { setThumbnail(null); return; }
+    const url = URL.createObjectURL(file);
+    setThumbnail(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -57,6 +67,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
       await onUpload(file, formData);
       // 폼 초기화
       setFile(null);
+      setThumbnail(null);
       setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '' });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -76,10 +87,17 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
           파일 선택 (PDF, 이미지)
         </label>
         <div
-          className="relative border-2 border-dashed border-neutral-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary-400 transition-colors"
+          className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+            isDragging
+              ? 'border-primary-500 bg-primary-50'
+              : 'border-neutral-300 hover:border-primary-400'
+          }`}
           onDragOver={(e) => e.preventDefault()}
+          onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
           onDrop={(e) => {
             e.preventDefault();
+            setIsDragging(false);
             if (e.dataTransfer.files?.[0]) {
               handleFileSelect({
                 target: { files: e.dataTransfer.files },
@@ -95,15 +113,25 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
           {file ? (
-            <div>
-              <p className="text-sm font-medium text-neutral-900 mb-1">선택된 파일:</p>
-              <p className="text-xs text-neutral-600">{file.name}</p>
-              <p className="text-xs text-neutral-500 mt-1">({formatFileSize(file.size)})</p>
+            <div className="flex flex-col items-center gap-2">
+              {thumbnail ? (
+                <img
+                  src={thumbnail}
+                  alt="미리보기"
+                  className="max-h-40 max-w-full rounded object-contain border border-neutral-200"
+                />
+              ) : (
+                <svg className="h-10 w-10 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                  <path d="M28 8H12a4 4 0 00-4 4v20a4 4 0 004 4h24a4 4 0 004-4V20m-8-12l-4-4m0 0L20 8m4 0v12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+              <p className="text-sm font-medium text-neutral-900">{file.name}</p>
+              <p className="text-xs text-neutral-500">{formatFileSize(file.size)}</p>
             </div>
           ) : (
             <div>
               <svg
-                className="mx-auto h-12 w-12 text-neutral-400 mb-2"
+                className={`mx-auto h-12 w-12 mb-2 transition-colors ${isDragging ? 'text-primary-500' : 'text-neutral-400'}`}
                 stroke="currentColor"
                 fill="none"
                 viewBox="0 0 48 48"
@@ -115,8 +143,8 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
                   strokeLinejoin="round"
                 />
               </svg>
-              <p className="text-sm font-medium text-neutral-900 mb-1">
-                클릭하여 파일을 선택하세요
+              <p className={`text-sm font-medium mb-1 transition-colors ${isDragging ? 'text-primary-600' : 'text-neutral-900'}`}>
+                {isDragging ? '여기에 놓으세요' : '클릭하여 파일을 선택하세요'}
               </p>
               <p className="text-xs text-neutral-500">또는 드래그 앤 드롭</p>
             </div>
