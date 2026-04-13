@@ -87,16 +87,19 @@ export default function GuestSessionPage() {
               height={typeof window !== 'undefined' ? window.innerHeight - 200 : 600}
             >
               <Layer>
-                {shapes.map((shape, idx) => (
-                  <Rect
-                    key={idx}
-                    x={shape.x}
-                    y={shape.y}
-                    width={shape.width}
-                    height={shape.height}
-                    fill={shape.color}
-                  />
-                ))}
+                {shapes.map((shape, idx) => {
+                  const d = shape.shape_data as any;
+                  return (
+                    <Rect
+                      key={idx}
+                      x={d.x ?? 0}
+                      y={d.y ?? 0}
+                      width={d.width ?? 0}
+                      height={d.height ?? 0}
+                      fill={d.color ?? '#000000'}
+                    />
+                  );
+                })}
               </Layer>
             </Stage>
           </div>
