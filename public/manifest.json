@@ -1,0 +1,80 @@
+{
+  "name": "Hamo - 악보 협업 앱",
+  "short_name": "Hamo",
+  "description": "교회 음악팀을 위한 실시간 악보 협업 PWA 애플리케이션",
+  "start_url": "/",
+  "display": "standalone",
+  "scope": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot1.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/icons/screenshot2.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "categories": ["music", "productivity"],
+  "shortcuts": [
+    {
+      "name": "악보관리",
+      "short_name": "악보",
+      "description": "악보 라이브러리 관리",
+      "url": "/sheets",
+      "icons": [
+        {
+          "src": "/icons/shortcut-sheet-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "세션 시작",
+      "short_name": "세션",
+      "description": "새로운 세션 시작",
+      "url": "/sessions",
+      "icons": [
+        {
+          "src": "/icons/shortcut-session-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

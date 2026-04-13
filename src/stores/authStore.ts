@@ -1,0 +1,153 @@
+import { create } from 'zustand';
+import { User } from '@/types';
+import { supabase } from '@/lib/supabase';
+
+interface AuthStore {
+  currentUser: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  setCurrentUser: (user: User | null) => void;
+  setIsAuthenticated: (authenticated: boolean) => void;
+  setIsLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+
+  // Auth methods
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<void>;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
+}
+
+export const useAuthStore = create<AuthStore>((set) => ({
+  currentUser: null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+
+  setCurrentUser: (user) => set({ currentUser: user }),
+  setIsAuthenticated: (authenticated) => set({ isAuthenticated: authenticated }),
+  setIsLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
+
+  login: async (email: string, password: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+
+      if (data.user) {
+        const user: User = {
+          id: data.user.id,
+          email: data.user.email || '',
+          name: data.user.user_metadata?.name || '',
+          avatar_url: data.user.user_metadata?.avatar_url,
+          created_at: data.user.created_at || new Date().toISOString(),
+        };
+        set({
+          currentUser: user,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Login failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  signup: async (email: string, password: string, name: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name },
+        },
+      });
+      if (error) throw error;
+
+      if (data.user) {
+        const user: User = {
+          id: data.user.id,
+          email: data.user.email || '',
+          name: name,
+          created_at: data.user.created_at || new Date().toISOString(),
+        };
+        set({
+          currentUser: user,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Signup failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  logout: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      set({
+        currentUser: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Logout failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  checkAuth: async () => {
+    set({ isLoading: true });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.name || '',
+          avatar_url: session.user.user_metadata?.avatar_url,
+          created_at: session.user.created_at || new Date().toISOString(),
+        };
+        set({
+          currentUser: user,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        set({
+          currentUser: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Auth check failed',
+        isLoading: false,
+      });
+    }
+  },
+}));
