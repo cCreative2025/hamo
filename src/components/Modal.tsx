@@ -42,23 +42,23 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={onClose}
     >
       <div
         className={cn(
-          'bg-white rounded-lg shadow-xl max-w-full w-full mx-4',
+          'bg-neutral-0 dark:bg-neutral-950 rounded-lg shadow-xl max-w-full w-full mx-4',
           sizeClasses[size]
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200">
-          <h2 className="text-xl font-semibold text-neutral-900">{title}</h2>
+        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
+          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{title}</h2>
           {closeButton && (
             <button
               onClick={onClose}
-              className="text-neutral-500 hover:text-neutral-700 transition-colors"
+              className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -73,10 +73,10 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6">{children}</div>
+        <div className="p-6 text-neutral-700 dark:text-neutral-300">{children}</div>
 
         {/* Footer */}
-        {footer && <div className="p-6 border-t border-neutral-200 flex gap-3 justify-end">{footer}</div>}
+        {footer && <div className="p-6 border-t border-neutral-200 dark:border-neutral-800 flex gap-3 justify-end">{footer}</div>}
       </div>
     </div>
   );

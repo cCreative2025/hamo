@@ -11,7 +11,7 @@ html {
 }
 
 body {
-  @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-50;
+  @apply bg-neutral-0 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
@@ -21,16 +21,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-gray-800;
+  @apply bg-neutral-100 dark:bg-neutral-800;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 rounded hover:bg-gray-500;
+  @apply bg-neutral-400 rounded hover:bg-neutral-500 dark:bg-neutral-600 dark:hover:bg-neutral-500;
 }
 
 /* Focus Styles */
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-blue-500;
+  @apply outline-2 outline-offset-2 outline-primary-500 dark:outline-primary-400;
 }
 
 /* Button Reset */
@@ -42,7 +42,7 @@ button {
 input,
 textarea,
 select {
-  @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500;
+  @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:focus-visible:outline-primary-400;
 }
 
 /* Animation */
@@ -83,5 +83,5 @@ select {
 }
 
 .gradient-primary {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  background: linear-gradient(135deg, #0284c7, #9333ea);
 }

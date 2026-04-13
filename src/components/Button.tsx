@@ -7,11 +7,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500',
-        secondary: 'bg-neutral-200 text-neutral-900 hover:bg-neutral-300 focus-visible:ring-neutral-500',
-        outline: 'border-2 border-neutral-300 text-neutral-900 hover:bg-neutral-50 focus-visible:ring-neutral-500',
-        ghost: 'text-neutral-700 hover:bg-neutral-100 focus-visible:ring-neutral-500',
-        danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500',
+        primary: 'bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600 dark:focus-visible:ring-primary-400',
+        secondary: 'bg-secondary-600 text-white hover:bg-secondary-700 focus-visible:ring-secondary-500 dark:bg-secondary-500 dark:hover:bg-secondary-600 dark:focus-visible:ring-secondary-400',
+        success: 'bg-success-600 text-white hover:bg-success-700 focus-visible:ring-success-500 dark:bg-success-500 dark:hover:bg-success-600 dark:focus-visible:ring-success-400',
+        outline: 'border-2 border-neutral-300 text-neutral-900 hover:bg-neutral-50 focus-visible:ring-neutral-500 dark:border-neutral-700 dark:text-neutral-100 dark:hover:bg-neutral-900 dark:focus-visible:ring-neutral-400',
+        ghost: 'text-neutral-700 hover:bg-neutral-100 focus-visible:ring-neutral-500 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:focus-visible:ring-neutral-400',
+        danger: 'bg-error-600 text-white hover:bg-error-700 focus-visible:ring-error-500 dark:bg-error-500 dark:hover:bg-error-600 dark:focus-visible:ring-error-400',
       },
       size: {
         sm: 'px-3 py-1.5 text-sm',

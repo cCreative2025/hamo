@@ -11,17 +11,17 @@ interface ToastProps {
 }
 
 const toastClasses = {
-  success: 'bg-green-50 text-green-900 border-green-200',
-  error: 'bg-red-50 text-red-900 border-red-200',
-  info: 'bg-blue-50 text-blue-900 border-blue-200',
-  warning: 'bg-yellow-50 text-yellow-900 border-yellow-200',
+  success: 'bg-success-50 text-success-900 border-success-200 dark:bg-success-900/30 dark:text-success-100 dark:border-success-700',
+  error: 'bg-error-50 text-error-900 border-error-200 dark:bg-error-900/30 dark:text-error-100 dark:border-error-700',
+  info: 'bg-primary-50 text-primary-900 border-primary-200 dark:bg-primary-900/30 dark:text-primary-100 dark:border-primary-700',
+  warning: 'bg-warning-50 text-warning-900 border-warning-200 dark:bg-warning-900/30 dark:text-warning-100 dark:border-warning-700',
 };
 
 const iconClasses = {
-  success: 'text-green-500',
-  error: 'text-red-500',
-  info: 'text-blue-500',
-  warning: 'text-yellow-500',
+  success: 'text-success-600 dark:text-success-400',
+  error: 'text-error-600 dark:text-error-400',
+  info: 'text-primary-600 dark:text-primary-400',
+  warning: 'text-warning-600 dark:text-warning-400',
 };
 
 export const Toast: React.FC<ToastProps> = ({

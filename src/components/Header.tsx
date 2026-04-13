@@ -25,12 +25,12 @@ export const Header: React.FC<HeaderProps> = ({ title, showUserMenu = true }) =>
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-neutral-200">
+    <header className="sticky top-0 z-40 bg-neutral-0 border-b border-neutral-200 dark:bg-neutral-950 dark:border-neutral-800">
       <div className="flex items-center justify-between px-6 py-4">
         {/* Logo & Title */}
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-primary-600">Hamo</h1>
-          {title && <h2 className="text-lg font-semibold text-neutral-700">{title}</h2>}
+          <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">Hamo</h1>
+          {title && <h2 className="text-lg font-semibold text-neutral-700 dark:text-neutral-300">{title}</h2>}
         </div>
 
         {/* User Menu */}
@@ -38,19 +38,19 @@ export const Header: React.FC<HeaderProps> = ({ title, showUserMenu = true }) =>
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-100 transition-colors"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
             >
-              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-                <span className="text-sm font-semibold text-primary-600">
+              <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+                <span className="text-sm font-semibold text-primary-600 dark:text-primary-400">
                   {currentUser.name?.charAt(0).toUpperCase() || 'U'}
                 </span>
               </div>
               <div className="text-left hidden sm:block">
-                <p className="text-sm font-medium text-neutral-900">{currentUser.name}</p>
-                <p className="text-xs text-neutral-500">{currentUser.email}</p>
+                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{currentUser.name}</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">{currentUser.email}</p>
               </div>
               <svg
-                className={`w-4 h-4 text-neutral-500 transition-transform ${
+                className={`w-4 h-4 text-neutral-500 dark:text-neutral-400 transition-transform ${
                   menuOpen ? 'rotate-180' : ''
                 }`}
                 fill="none"
@@ -68,17 +68,17 @@ export const Header: React.FC<HeaderProps> = ({ title, showUserMenu = true }) =>
 
             {/* Dropdown Menu */}
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-neutral-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-neutral-200">
-                  <p className="text-sm font-medium text-neutral-900">{currentUser.name}</p>
-                  <p className="text-xs text-neutral-500">{currentUser.email}</p>
+              <div className="absolute right-0 mt-2 w-48 bg-neutral-0 dark:bg-neutral-950 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+                <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
+                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{currentUser.name}</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">{currentUser.email}</p>
                 </div>
                 <button
                   onClick={() => {
                     setMenuOpen(false);
                     router.push('/profile');
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
                 >
                   프로필
                 </button>
@@ -87,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({ title, showUserMenu = true }) =>
                     setMenuOpen(false);
                     router.push('/settings');
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
                 >
                   설정
                 </button>
@@ -96,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({ title, showUserMenu = true }) =>
                     setMenuOpen(false);
                     handleLogout();
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-neutral-200"
+                  className="w-full text-left px-4 py-2 text-sm text-error-600 dark:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20 transition-colors border-t border-neutral-200 dark:border-neutral-800"
                 >
                   로그아웃
                 </button>

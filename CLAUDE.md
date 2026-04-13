@@ -345,6 +345,29 @@ webpack: (config, options) => {
 }
 ```
 
+## Design System (2026-04-14)
+
+**Latest Update**: Design Pipeline v1 Complete
+- **Design Kit**: `/public/_design-kit/index.html`
+- **Color Tokens**: Primary, Secondary, Success, Error, Warning, Neutral (50-950 tones each)
+- **Dark Mode**: Fully supported with `darkMode: class` in Tailwind
+- **WCAG Compliance**: All text/background combinations meet AA standard (4.5:1+)
+
+**Files Updated** (Stage 3 Implementation):
+- `tailwind.config.ts` — Color token expansion (+80 lines)
+- `src/styles/globals.css` — Global dark mode colors
+- `src/components/Button.tsx` — Token-based variants + dark mode
+- `src/components/Header.tsx` — Dark mode support
+- `src/components/Modal.tsx` — Dark mode support
+- `src/components/Toast.tsx` — Token migration + dark mode
+- `public/_design-kit/index.html` — Interactive color palette viewer
+
+**Pipeline Artifacts**: `docs/20260414-design/`
+- `inspection.md` — Current design audit
+- `plan.md` — Color system redesign plan
+- `implementation.md` — Changes applied (Stage 3)
+
+
 ## 향후 개선 계획
 
 - [ ] 음성 채팅 (WebRTC)
