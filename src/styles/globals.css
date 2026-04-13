@@ -13,6 +13,7 @@ html {
 body {
   @apply bg-neutral-0 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
   font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Scrollbar Styling */
@@ -83,5 +84,9 @@ select {
 }
 
 .gradient-primary {
-  background: linear-gradient(135deg, #0284c7, #9333ea);
+  background: linear-gradient(135deg, #ae9fff, #ff7fac);
+}
+
+.gradient-soft {
+  background: linear-gradient(135deg, #f6f5ff 0%, #fff5f8 50%, #f0fdf9 100%);
 }

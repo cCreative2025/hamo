@@ -22,7 +22,7 @@ export default function SheetsPage() {
     isLoading,
     filters,
     loadSheets,
-    applyFilters,
+    setFilters,
     selectSheet,
   } = useSheetStore();
 
@@ -36,10 +36,8 @@ export default function SheetsPage() {
   }, [currentUser, loadSheets]);
 
   useEffect(() => {
-    applyFilters({
-      search: searchTerm,
-    });
-  }, [searchTerm, applyFilters]);
+    setFilters({ ...filters, searchText: searchTerm });
+  }, [searchTerm]);
 
   const handleSheetSelect = (sheet: Sheet) => {
     selectSheet(sheet);

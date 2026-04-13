@@ -20,8 +20,8 @@ interface SheetStore {
   setError: (error: string | null) => void;
 
   // Sheet methods
-  loadSheets: (teamId: string) => Promise<void>;
-  selectSheet: (sheetId: string) => Promise<void>;
+  loadSheets: (teamId?: string) => Promise<void>;
+  selectSheet: (sheetOrId: string | Sheet) => Promise<void>;
   uploadSheet: (
     teamId: string,
     file: File,
@@ -63,14 +63,22 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
 
-  loadSheets: async (teamId: string) => {
+  loadSheets: async (teamId?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('sheets')
         .select('*, sheet_versions(id, file_url, file_type, page_count, tempo, key, version_number, created_by, created_at)')
-        .eq('team_id', teamId)
         .order('updated_at', { ascending: false });
+
+      if (teamId) {
+        query = query.eq('team_id', teamId);
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) query = query.eq('owner_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -84,7 +92,8 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
     }
   },
 
-  selectSheet: async (sheetId: string) => {
+  selectSheet: async (sheetOrId: string | Sheet) => {
+    const sheetId = typeof sheetOrId === 'string' ? sheetOrId : sheetOrId.id;
     set({ isLoading: true, error: null });
     try {
       const { data, error } = await supabase
