@@ -45,12 +45,12 @@ export default function SessionPlayerPage() {
 
   useEffect(() => {
     if (currentSession && currentUser) {
-      joinSession(sessionId, currentUser.id);
+      joinSession(sessionId);
     }
 
     return () => {
       if (currentUser) {
-        leaveSession(sessionId, currentUser.id);
+        leaveSession(sessionId);
       }
     };
   }, [currentSession, currentUser, sessionId, joinSession, leaveSession]);
