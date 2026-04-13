@@ -5,6 +5,7 @@ import { Sheet, SongForm } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { Button } from './Button';
 import { useSheetStore } from '@/stores/sheetStore';
+import { SheetViewerModal } from './SheetViewerModal';
 
 interface SheetCardProps {
   sheet: Sheet;
@@ -16,6 +17,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete 
   const [expanded, setExpanded] = useState(false);
   const [addingForm, setAddingForm] = useState(false);
   const [newForm, setNewForm] = useState({ name: '', key: '', chord_progression: '', memo: '' });
+  const [viewing, setViewing] = useState(false);
   const { addSongForm, deleteSongForm } = useSheetStore();
 
   const handleAddForm = async () => {
@@ -115,6 +117,11 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete 
 
       {/* Actions */}
       <div className="flex gap-2">
+        {sheet.sheet_versions?.[0] && (
+          <Button size="sm" variant="secondary" onClick={() => setViewing(true)}>
+            보기
+          </Button>
+        )}
         <Button size="sm" variant="primary" onClick={() => onSelect(sheet)} fullWidth>
           선택
         </Button>
@@ -124,6 +131,8 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete 
           </Button>
         )}
       </div>
+
+      {viewing && <SheetViewerModal sheet={sheet} onClose={() => setViewing(false)} />}
     </div>
   );
 };
