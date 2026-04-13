@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Sheet, SheetVersion, SessionFilter } from '@/types';
+import { Sheet, SheetVersion, SongForm, SessionFilter } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 interface SheetStore {
@@ -36,6 +36,11 @@ interface SheetStore {
   deleteSheet: (sheetId: string) => Promise<void>;
   uploadNewVersion: (sheetId: string, file: File) => Promise<SheetVersion>;
   applyFilters: () => void;
+
+  // Song form methods
+  addSongForm: (sheetId: string, form: { name: string; key?: string; chord_progression?: string; memo?: string }) => Promise<SongForm>;
+  updateSongForm: (formId: string, updates: Partial<Pick<SongForm, 'name' | 'key' | 'chord_progression' | 'memo'>>) => Promise<void>;
+  deleteSongForm: (formId: string) => Promise<void>;
 }
 
 export const useSheetStore = create<SheetStore>((set, get) => ({
@@ -68,7 +73,7 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
     try {
       let query = supabase
         .from('sheets')
-        .select('*, sheet_versions(id, file_path, file_type, file_size, page_count, version_number, uploaded_by, created_at)')
+        .select('*, sheet_versions(id, file_path, file_type, file_size, page_count, version_number, uploaded_by, created_at), song_forms(id, name, key, chord_progression, memo, created_by, created_at, updated_at)')
         .order('updated_at', { ascending: false });
 
       if (teamId) {
@@ -309,5 +314,61 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
     }
 
     set({ filteredSheets: filtered });
+  },
+
+  addSongForm: async (sheetId, form) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('song_forms')
+      .insert({ ...form, sheet_id: sheetId, created_by: user.id })
+      .select()
+      .single();
+    if (error) throw error;
+
+    set((state) => ({
+      sheets: state.sheets.map((s) =>
+        s.id === sheetId
+          ? { ...s, song_forms: [...(s.song_forms || []), data] }
+          : s
+      ),
+    }));
+    get().applyFilters();
+    return data;
+  },
+
+  updateSongForm: async (formId, updates) => {
+    const { error } = await supabase
+      .from('song_forms')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', formId);
+    if (error) throw error;
+
+    set((state) => ({
+      sheets: state.sheets.map((s) => ({
+        ...s,
+        song_forms: s.song_forms?.map((f) =>
+          f.id === formId ? { ...f, ...updates } : f
+        ),
+      })),
+    }));
+    get().applyFilters();
+  },
+
+  deleteSongForm: async (formId) => {
+    const { error } = await supabase
+      .from('song_forms')
+      .delete()
+      .eq('id', formId);
+    if (error) throw error;
+
+    set((state) => ({
+      sheets: state.sheets.map((s) => ({
+        ...s,
+        song_forms: s.song_forms?.filter((f) => f.id !== formId),
+      })),
+    }));
+    get().applyFilters();
   },
 }));

@@ -10,6 +10,13 @@ interface SheetUploaderProps {
   isLoading?: boolean;
 }
 
+export interface SongFormData {
+  name: string;
+  key?: string;
+  chord_progression?: string;
+  memo?: string;
+}
+
 export interface SheetUploadData {
   title: string;
   artist?: string;
@@ -17,6 +24,7 @@ export interface SheetUploadData {
   key?: string;
   tempo?: number;
   time_signature?: string;
+  songForm?: SongFormData;
 }
 
 export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoading }) => {
@@ -30,6 +38,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
     key: '',
     tempo: undefined,
     time_signature: '',
+    songForm: { name: '기본', key: '', chord_progression: '', memo: '' },
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,7 +77,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
       // 폼 초기화
       setFile(null);
       setThumbnail(null);
-      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '' });
+      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', songForm: { name: '기본', key: '', chord_progression: '', memo: '' } });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -234,6 +243,53 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
             onChange={(e) => setFormData((prev) => ({ ...prev, time_signature: e.target.value }))}
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             placeholder="예: 4/4"
+          />
+        </div>
+      </div>
+
+      {/* Song Form */}
+      <div className="mb-6 border border-neutral-200 rounded-xl p-4 bg-neutral-50">
+        <h4 className="text-sm font-semibold text-neutral-700 mb-3">송폼 (코드 진행)</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+          <div>
+            <label className="block text-xs font-medium text-neutral-600 mb-1">버전 이름</label>
+            <input
+              type="text"
+              value={formData.songForm?.name || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, name: e.target.value } }))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="예: 원키, E♭ 버전"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-neutral-600 mb-1">키</label>
+            <input
+              type="text"
+              value={formData.songForm?.key || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, key: e.target.value } }))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="예: C, E♭, G"
+            />
+          </div>
+        </div>
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-neutral-600 mb-1">코드 진행</label>
+          <textarea
+            value={formData.songForm?.chord_progression || ''}
+            onChange={(e) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, chord_progression: e.target.value } }))}
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+            rows={3}
+            placeholder="예: 인트로: Am - F - C - G&#10;벌스: Am - F - C - G&#10;코러스: F - G - Am - C"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-600 mb-1">메모</label>
+          <input
+            type="text"
+            value={formData.songForm?.memo || ''}
+            onChange={(e) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, memo: e.target.value } }))}
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="참고사항"
           />
         </div>
       </div>

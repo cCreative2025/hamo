@@ -84,6 +84,21 @@ export function generateGuestCode(): string {
 }
 
 /**
+ * 한글 초성 추출 (ㄱ,ㄴ,ㄷ,ㄹ... / 영문 A-Z / 숫자·기타 = #)
+ */
+const KOREAN_INITIALS = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+export function getKoreanInitial(text: string): string {
+  if (!text) return '#';
+  const code = text.charCodeAt(0);
+  if (code >= 0xAC00 && code <= 0xD7A3) {
+    return KOREAN_INITIALS[Math.floor((code - 0xAC00) / 588)];
+  }
+  if (code >= 65 && code <= 90) return text[0].toUpperCase();
+  if (code >= 97 && code <= 122) return text[0].toUpperCase();
+  return '#';
+}
+
+/**
  * 색상 객체를 CSS 스타일로 변환
  */
 export function rgbToCss(r: number, g: number, b: number, a: number = 1): string {

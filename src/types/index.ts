@@ -37,30 +37,46 @@ export interface TeamInvite {
 }
 
 // Sheet-related types
-export interface Sheet {
+export interface SongForm {
   id: string;
-  team_id: string;
-  title: string;
-  artist?: string;
-  genre?: string;
-  description?: string;
-  active_version_id: string;
+  sheet_id: string;
+  name: string;
+  key?: string;
+  chord_progression?: string;
+  memo?: string;
   created_by: string;
   created_at: string;
   updated_at: string;
 }
 
+export interface Sheet {
+  id: string;
+  owner_id: string;
+  team_id?: string;
+  title: string;
+  artist?: string;
+  genre?: string;
+  key?: string;
+  tempo?: number;
+  time_signature?: string;
+  description?: string;
+  active_version_id?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  sheet_versions?: SheetVersion[];
+  song_forms?: SongForm[];
+}
+
 export interface SheetVersion {
   id: string;
   sheet_id: string;
-  file_url: string;
-  file_type: 'pdf' | 'jpg' | 'png';
+  file_path: string;
+  file_type: 'pdf' | 'image';
+  file_size?: number;
   page_count: number;
-  tempo?: number;
-  key?: string;
-  form_labels?: string[];
   version_number: number;
-  created_by: string;
+  uploaded_by: string;
   created_at: string;
 }
 
