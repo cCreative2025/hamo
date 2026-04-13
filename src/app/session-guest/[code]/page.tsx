@@ -13,7 +13,7 @@ export default function GuestSessionPage() {
   const code = params.code as string;
 
   const { currentUser } = useAuthStore();
-  const { shapes } = useDrawingStore();
+  const { localShapes: shapes } = useDrawingStore();
 
   const stageRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
