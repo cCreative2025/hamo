@@ -21,6 +21,16 @@ interface AuthStore {
   checkAuth: () => Promise<void>;
 }
 
+const upsertProfile = async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, string>; created_at?: string }) => {
+  await supabase.from('users').upsert({
+    id: authUser.id,
+    email: authUser.email || '',
+    name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || '',
+    avatar_url: authUser.user_metadata?.avatar_url || null,
+    created_at: authUser.created_at || new Date().toISOString(),
+  }, { onConflict: 'id' });
+};
+
 export const useAuthStore = create<AuthStore>((set) => ({
   currentUser: null,
   isAuthenticated: false,
@@ -42,6 +52,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       if (error) throw error;
 
       if (data.user) {
+        await upsertProfile(data.user);
         const user: User = {
           id: data.user.id,
           email: data.user.email || '',
@@ -77,6 +88,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       if (error) throw error;
 
       if (data.user) {
+        await upsertProfile({ ...data.user, user_metadata: { name } });
         const user: User = {
           id: data.user.id,
           email: data.user.email || '',
@@ -124,6 +136,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user) {
+        await upsertProfile(session.user);
         const user: User = {
           id: session.user.id,
           email: session.user.email || '',
