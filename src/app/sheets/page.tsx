@@ -28,6 +28,8 @@ export default function SheetsPage() {
 
   const [showUploader, setShowUploader] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -62,50 +64,64 @@ export default function SheetsPage() {
         {/* Uploader */}
         {showUploader && (
           <div className="mb-8">
+            {uploadError && (
+              <div className="mb-4 p-3 bg-error-50 border border-error-200 rounded-lg text-sm text-error-700">
+                {uploadError}
+              </div>
+            )}
             <SheetUploader
+              isLoading={isUploading}
               onUpload={async (file, data) => {
                 if (!currentUser) throw new Error('로그인이 필요합니다');
+                setUploadError(null);
+                setIsUploading(true);
+                try {
+                  // 1. Storage에 파일 업로드
+                  const ext = file.name.split('.').pop();
+                  const filePath = `${currentUser.id}/${Date.now()}.${ext}`;
+                  const { error: storageError } = await supabase.storage
+                    .from('sheets')
+                    .upload(filePath, file, { upsert: false });
+                  if (storageError) throw new Error(`파일 업로드 실패: ${storageError.message}`);
 
-                // 1. Storage에 파일 업로드
-                const ext = file.name.split('.').pop();
-                const filePath = `${currentUser.id}/${Date.now()}.${ext}`;
-                const { error: uploadError } = await supabase.storage
-                  .from('sheets')
-                  .upload(filePath, file, { upsert: false });
-                if (uploadError) throw uploadError;
+                  // 2. sheets 테이블에 메타데이터 저장
+                  const { data: sheetData, error: sheetError } = await supabase
+                    .from('sheets')
+                    .insert({
+                      title: data.title,
+                      artist: data.artist,
+                      genre: data.genre,
+                      key: data.key,
+                      tempo: data.tempo,
+                      time_signature: data.time_signature,
+                      owner_id: currentUser.id,
+                    })
+                    .select()
+                    .single();
+                  if (sheetError) throw new Error(`악보 저장 실패: ${sheetError.message}`);
 
-                // 2. sheets 테이블에 메타데이터 저장
-                const { data: sheetData, error: sheetError } = await supabase
-                  .from('sheets')
-                  .insert({
-                    title: data.title,
-                    artist: data.artist,
-                    genre: data.genre,
-                    key: data.key,
-                    tempo: data.tempo,
-                    time_signature: data.time_signature,
-                    owner_id: currentUser.id,
-                  })
-                  .select()
-                  .single();
-                if (sheetError) throw sheetError;
+                  // 3. sheet_versions에 파일 정보 저장
+                  const fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
+                  const { error: versionError } = await supabase
+                    .from('sheet_versions')
+                    .insert({
+                      sheet_id: sheetData.id,
+                      version_number: 1,
+                      file_path: filePath,
+                      file_type: fileType,
+                      file_size: file.size,
+                      uploaded_by: currentUser.id,
+                    });
+                  if (versionError) throw new Error(`버전 저장 실패: ${versionError.message}`);
 
-                // 3. sheet_versions에 파일 정보 저장
-                const fileType = file.type === 'application/pdf' ? 'pdf' : 'image';
-                const { error: versionError } = await supabase
-                  .from('sheet_versions')
-                  .insert({
-                    sheet_id: sheetData.id,
-                    version_number: 1,
-                    file_path: filePath,
-                    file_type: fileType,
-                    file_size: file.size,
-                    uploaded_by: currentUser.id,
-                  });
-                if (versionError) throw versionError;
-
-                await loadSheets();
-                setShowUploader(false);
+                  await loadSheets();
+                  setShowUploader(false);
+                } catch (err) {
+                  setUploadError(err instanceof Error ? err.message : '업로드 중 오류가 발생했습니다');
+                  throw err;
+                } finally {
+                  setIsUploading(false);
+                }
               }}
             />
           </div>

@@ -68,7 +68,7 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
     try {
       let query = supabase
         .from('sheets')
-        .select('*, sheet_versions(id, file_url, file_type, page_count, tempo, key, version_number, created_by, created_at)')
+        .select('*, sheet_versions(id, file_path, file_type, file_size, page_count, version_number, uploaded_by, created_at)')
         .order('updated_at', { ascending: false });
 
       if (teamId) {
