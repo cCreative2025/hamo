@@ -22,7 +22,7 @@ export default function SessionPlayerPage() {
     currentSession,
     setlist,
     currentSongIndex,
-    currentTempo,
+    tempo: currentTempo,
     loadSession,
     goToNextSong,
     goToPreviousSong,
@@ -31,7 +31,7 @@ export default function SessionPlayerPage() {
   } = useSessionStore();
 
   const { participants, joinSession, leaveSession } = useParticipantStore();
-  const { shapes, addShape, undo, redo, clearLocalShapes } = useDrawingStore();
+  const { localShapes: shapes, undo, redo, clearLocalShapes } = useDrawingStore();
 
   const stageRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -110,7 +110,7 @@ export default function SessionPlayerPage() {
             variant="danger"
             size="sm"
             onClick={async () => {
-              await endSession();
+              await endSession(sessionId);
               // 세션 목록으로 이동
             }}
           >
@@ -146,16 +146,19 @@ export default function SessionPlayerPage() {
             >
               <Layer>
                 {/* Render shapes from store */}
-                {shapes.map((shape, idx) => (
-                  <Rect
-                    key={idx}
-                    x={shape.x}
-                    y={shape.y}
-                    width={shape.width}
-                    height={shape.height}
-                    fill={shape.color}
-                  />
-                ))}
+                {shapes.map((shape, idx) => {
+                  const d = shape.shape_data as any;
+                  return (
+                    <Rect
+                      key={idx}
+                      x={d.x ?? 0}
+                      y={d.y ?? 0}
+                      width={d.width ?? 0}
+                      height={d.height ?? 0}
+                      fill={d.color ?? '#000000'}
+                    />
+                  );
+                })}
               </Layer>
             </Stage>
           </div>
