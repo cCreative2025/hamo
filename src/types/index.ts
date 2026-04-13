@@ -78,6 +78,7 @@ export interface Session {
   id: string;
   team_id: string;
   name: string;
+  title?: string;
   created_by: string;
   status: 'active' | 'paused' | 'completed';
   current_song_index: number;
@@ -92,6 +93,8 @@ export interface SessionSong {
   sheet_version_id: string;
   sequence_order: number;
   notes?: string;
+  title?: string;
+  artist?: string;
   created_at: string;
 }
 
