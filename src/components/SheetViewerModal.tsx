@@ -323,15 +323,27 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
   // Song form add (inline panel)
   const [addingForm, setAddingForm] = useState(false);
+  const [closingForm, setClosingForm] = useState(false);
   const [newForm, setNewForm] = useState<SongFormInputValue>({ name: '', key: '', sections: [], flow: [], memo: '' });
   const [addingSaving, setAddingSaving] = useState(false);
+
+  const closeAddingForm = () => {
+    setClosingForm(true);
+  };
+  const handleAddFormAnimEnd = () => {
+    if (closingForm) {
+      setAddingForm(false);
+      setClosingForm(false);
+      setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
+    }
+  };
 
   const handleAddFormSave = async () => {
     if (!newForm.name.trim()) return;
     setAddingSaving(true);
     await addSongForm(sheet.id, newForm);
     setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
-    setAddingForm(false);
+    setClosingForm(true);
     setAddingSaving(false);
   };
 
@@ -602,10 +614,13 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
         {/* ── 송폼 추가 패널 (인라인 슬라이드업) ── */}
         {!drawingMode && addingForm && (
-          <div className="border-t border-neutral-200 bg-white flex-shrink-0 flex flex-col max-h-[60vh]" style={{ animation: 'slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div className="border-t border-neutral-200 bg-white flex-shrink-0 flex flex-col max-h-[60vh]"
+            style={{ animation: `${closingForm ? 'slide-down' : 'slide-up'} 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards` }}
+            onAnimationEnd={handleAddFormAnimEnd}
+          >
             <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
               <span className="text-sm font-semibold text-neutral-800">송폼 추가</span>
-              <button onClick={() => setAddingForm(false)} className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors">
+              <button onClick={closeAddingForm} className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -615,7 +630,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
               <SongFormInput value={newForm} onChange={setNewForm} showMemo autoFocus />
             </div>
             <div className="flex justify-end gap-2 px-5 py-3 border-t border-neutral-100 flex-shrink-0">
-              <button onClick={() => setAddingForm(false)}
+              <button onClick={closeAddingForm}
                 className="px-3 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
               >취소</button>
               <button onClick={handleAddFormSave} disabled={!newForm.name.trim() || addingSaving}
