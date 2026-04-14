@@ -513,24 +513,13 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
               </button>
 
               {/* 초기화 */}
-              {clearPending ? (
-                <div className="flex items-center gap-1">
-                  <button onClick={handleClear}
-                    className="px-2 py-1 rounded-lg bg-error-500 text-white text-xs font-medium hover:bg-error-600 transition-colors"
-                  >지우기</button>
-                  <button onClick={() => setClearPending(false)}
-                    className="px-2 py-1 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
-                  >취소</button>
-                </div>
-              ) : (
-                <button onClick={() => setClearPending(true)} disabled={currentPaths.length === 0} title="전체 지우기"
-                  className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
-                  </svg>
-                </button>
-              )}
+              <button onClick={() => setClearPending(true)} disabled={currentPaths.length === 0} title="전체 지우기"
+                className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
           )}
         </div>
@@ -665,6 +654,28 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
           </div>
         )}
       </div>
+
+      {/* ── 리셋 확인 다이얼로그 ── */}
+      {clearPending && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 rounded-2xl">
+          <div className="bg-white rounded-2xl shadow-soft-lg px-6 py-5 mx-4 max-w-xs w-full space-y-4">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-neutral-900">악보 레이어를 리셋하시겠습니까?</p>
+              <p className="text-xs text-neutral-500">그려진 내용이 모두 삭제됩니다.</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleClear}
+                className="flex-1 py-2 rounded-xl bg-error-500 text-white text-xs font-medium hover:bg-error-600 transition-colors"
+              >리셋</button>
+              <button
+                onClick={() => setClearPending(false)}
+                className="flex-1 py-2 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
+              >취소</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 복사 확인 다이얼로그 ── */}
       {copyTargetForm && (
