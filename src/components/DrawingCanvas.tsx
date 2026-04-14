@@ -55,6 +55,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   // pathsRef를 props와 동기화
   useEffect(() => { pathsRef.current = paths; }, [paths]);
 
+  // iOS Safari는 touch-action: none을 지원하지 않음 →
+  // touchstart/touchmove에 passive: false + preventDefault() 직접 등록
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const prevent = (e: TouchEvent) => e.preventDefault();
+    canvas.addEventListener('touchstart', prevent, { passive: false });
+    canvas.addEventListener('touchmove', prevent, { passive: false });
+    return () => {
+      canvas.removeEventListener('touchstart', prevent);
+      canvas.removeEventListener('touchmove', prevent);
+    };
+  }, []);
+
   // Sync canvas dimensions with container
   useEffect(() => {
     const container = containerRef.current;
@@ -159,7 +173,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           pointerEvents: activeTool ? 'auto' : 'none',
           cursor: activeTool === 'pen' ? 'crosshair' : activeTool === 'eraser' ? 'cell' : 'default',
           touchAction: 'none',
-        }}
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitTapHighlightColor: 'transparent',
+        } as React.CSSProperties}
         onPointerDown={startDraw}
         onPointerMove={draw}
         onPointerUp={endDraw}
