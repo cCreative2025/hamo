@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, startTransition } from 'react';
 import { Sheet, SongForm, SongSection, normalizeFlow } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { PDFViewer } from './PDFViewer';
@@ -211,8 +211,10 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const [canRedo, setCanRedo] = useState(false);
 
   const syncUndoRedoButtons = useCallback((formId: string) => {
-    setCanUndo((undoStackByFormRef.current[formId]?.length ?? 0) > 0);
-    setCanRedo((redoStackByFormRef.current[formId]?.length ?? 0) > 0);
+    startTransition(() => {
+      setCanUndo((undoStackByFormRef.current[formId]?.length ?? 0) > 0);
+      setCanRedo((redoStackByFormRef.current[formId]?.length ?? 0) > 0);
+    });
   }, []);
 
   const currentPaths = selectedFormId ? (drawingsByForm[selectedFormId] ?? []) : [];
@@ -221,13 +223,18 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savePathsDebounced = useCallback((formId: string, paths: DrawPath[]) => {
     drawingsByFormRef.current = { ...drawingsByFormRef.current, [formId]: paths };
-    setDrawingsByForm({ ...drawingsByFormRef.current });
-    setSaveStatus('saving');
+    // 저우선도 전환 — 다음 포인터 이벤트(스트로크)가 블로킹되지 않도록
+    startTransition(() => {
+      setDrawingsByForm({ ...drawingsByFormRef.current });
+      setSaveStatus('saving');
+    });
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       await updateSongForm(formId, { drawing_data: paths } as never);
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      startTransition(() => {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      });
     }, 1000);
   }, [updateSongForm]);
 
@@ -598,7 +605,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                   draggable={false}
                   onContextMenu={(e) => e.preventDefault()}
                   className="max-w-full max-h-full object-contain rounded-xl shadow-soft"
-                  style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+                  style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none', pointerEvents: 'none' } as React.CSSProperties}
                 />
               </div>
             ) : null}
