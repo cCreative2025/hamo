@@ -90,6 +90,13 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   );
   const selectedForm = sheet.song_forms?.find(f => f.id === selectedFormId) ?? null;
 
+  // 송폼 전환 시 undo/redo 버튼 상태 동기화
+  useEffect(() => {
+    if (!selectedFormId) { setCanUndo(false); setCanRedo(false); return; }
+    setCanUndo((undoStackByFormRef.current[selectedFormId]?.length ?? 0) > 0);
+    setCanRedo((redoStackByFormRef.current[selectedFormId]?.length ?? 0) > 0);
+  }, [selectedFormId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Title editing
   const [titleEditing, setTitleEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(sheet.title);
@@ -197,13 +204,18 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     return init;
   });
 
-  // Undo/redo stacks per form
-  const [undoStackByForm, setUndoStackByForm] = useState<Record<string, DrawPath[][]>>({});
-  const [redoStackByForm, setRedoStackByForm] = useState<Record<string, DrawPath[][]>>({});
+  // Undo/redo stacks — ref로 관리해서 스트로크마다 리렌더 방지
+  const undoStackByFormRef = useRef<Record<string, DrawPath[][]>>({});
+  const redoStackByFormRef = useRef<Record<string, DrawPath[][]>>({});
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const syncUndoRedoButtons = useCallback((formId: string) => {
+    setCanUndo((undoStackByFormRef.current[formId]?.length ?? 0) > 0);
+    setCanRedo((redoStackByFormRef.current[formId]?.length ?? 0) > 0);
+  }, []);
 
   const currentPaths = selectedFormId ? (drawingsByForm[selectedFormId] ?? []) : [];
-  const canUndo = selectedFormId ? (undoStackByForm[selectedFormId]?.length ?? 0) > 0 : false;
-  const canRedo = selectedFormId ? (redoStackByForm[selectedFormId]?.length ?? 0) > 0 : false;
 
   // Debounced save (direct, no stack manipulation)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -223,38 +235,42 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const handlePathsChange = useCallback((paths: DrawPath[]) => {
     if (!selectedFormId) return;
     const before = drawingsByFormRef.current[selectedFormId] ?? [];
-    setUndoStackByForm(prev => ({ ...prev, [selectedFormId]: [...(prev[selectedFormId] ?? []), before] }));
-    setRedoStackByForm(prev => ({ ...prev, [selectedFormId]: [] }));
+    undoStackByFormRef.current[selectedFormId] = [...(undoStackByFormRef.current[selectedFormId] ?? []), before];
+    redoStackByFormRef.current[selectedFormId] = [];
+    syncUndoRedoButtons(selectedFormId);
     savePathsDebounced(selectedFormId, paths);
-  }, [selectedFormId, savePathsDebounced]);
+  }, [selectedFormId, savePathsDebounced, syncUndoRedoButtons]);
 
   const handleUndo = () => {
     if (!selectedFormId) return;
-    const stack = undoStackByForm[selectedFormId] ?? [];
+    const stack = undoStackByFormRef.current[selectedFormId] ?? [];
     if (stack.length === 0) return;
     const before = stack[stack.length - 1];
     const current = drawingsByFormRef.current[selectedFormId] ?? [];
-    setUndoStackByForm(p => ({ ...p, [selectedFormId]: stack.slice(0, -1) }));
-    setRedoStackByForm(p => ({ ...p, [selectedFormId]: [...(p[selectedFormId] ?? []), current] }));
+    undoStackByFormRef.current[selectedFormId] = stack.slice(0, -1);
+    redoStackByFormRef.current[selectedFormId] = [...(redoStackByFormRef.current[selectedFormId] ?? []), current];
+    syncUndoRedoButtons(selectedFormId);
     savePathsDebounced(selectedFormId, before);
   };
 
   const handleRedo = () => {
     if (!selectedFormId) return;
-    const stack = redoStackByForm[selectedFormId] ?? [];
+    const stack = redoStackByFormRef.current[selectedFormId] ?? [];
     if (stack.length === 0) return;
     const next = stack[stack.length - 1];
     const current = drawingsByFormRef.current[selectedFormId] ?? [];
-    setRedoStackByForm(p => ({ ...p, [selectedFormId]: stack.slice(0, -1) }));
-    setUndoStackByForm(p => ({ ...p, [selectedFormId]: [...(p[selectedFormId] ?? []), current] }));
+    redoStackByFormRef.current[selectedFormId] = stack.slice(0, -1);
+    undoStackByFormRef.current[selectedFormId] = [...(undoStackByFormRef.current[selectedFormId] ?? []), current];
+    syncUndoRedoButtons(selectedFormId);
     savePathsDebounced(selectedFormId, next);
   };
 
   const handleClear = () => {
     if (!selectedFormId) return;
     const current = drawingsByFormRef.current[selectedFormId] ?? [];
-    setUndoStackByForm(p => ({ ...p, [selectedFormId]: [...(p[selectedFormId] ?? []), current] }));
-    setRedoStackByForm(p => ({ ...p, [selectedFormId]: [] }));
+    undoStackByFormRef.current[selectedFormId] = [...(undoStackByFormRef.current[selectedFormId] ?? []), current];
+    redoStackByFormRef.current[selectedFormId] = [];
+    syncUndoRedoButtons(selectedFormId);
     savePathsDebounced(selectedFormId, []);
     setClearPending(false);
   };
