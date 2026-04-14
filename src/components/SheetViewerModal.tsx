@@ -581,47 +581,35 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
             ) : error ? (
               <div className="absolute inset-0 flex items-center justify-center text-error-500 text-sm">{error}</div>
             ) : fileType === 'pdf' && fileUrl ? (
-              // PDF: 전체 영역을 채우므로 캔버스도 동일 크기
-              <div className="absolute inset-0 flex flex-col relative">
-                <div className="absolute inset-0" style={{ pointerEvents: drawingMode ? 'none' : 'auto' }}>
-                  <PDFViewer fileUrl={fileUrl} />
-                </div>
-                {selectedFormId && (
-                  <DrawingCanvas
-                    paths={currentPaths}
-                    onPathsChange={handlePathsChange}
-                    activeTool={drawingMode ? activeTool : null}
-                    color={penColor}
-                    strokeWidth={strokeWidth}
-                    onPencilDoubleTap={() => setActiveTool(t => t === 'eraser' ? 'pen' : 'eraser')}
-                  />
-                )}
+              <div className="absolute inset-0 flex flex-col" style={drawingMode ? { pointerEvents: 'none' } : undefined}>
+                <PDFViewer fileUrl={fileUrl} />
               </div>
             ) : fileUrl ? (
-              // 이미지: wrapper가 이미지 크기에 딱 맞고 캔버스는 그 안에만 존재
-              <div className="absolute inset-0 flex items-center justify-center p-4 overflow-auto bg-neutral-50">
-                <div className="relative" style={{ lineHeight: 0, flexShrink: 0 }}>
-                  <img
-                    src={fileUrl}
-                    alt={sheet.title}
-                    draggable={false}
-                    onContextMenu={(e) => e.preventDefault()}
-                    className="max-w-full max-h-full object-contain rounded-xl shadow-soft block"
-                    style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none', pointerEvents: 'none', display: 'block' } as React.CSSProperties}
-                  />
-                  {selectedFormId && (
-                    <DrawingCanvas
-                      paths={currentPaths}
-                      onPathsChange={handlePathsChange}
-                      activeTool={drawingMode ? activeTool : null}
-                      color={penColor}
-                      strokeWidth={strokeWidth}
-                      onPencilDoubleTap={() => setActiveTool(t => t === 'eraser' ? 'pen' : 'eraser')}
-                    />
-                  )}
-                </div>
+              <div className="absolute inset-0 flex items-center justify-center p-4 overflow-auto bg-neutral-50"
+                style={drawingMode ? { pointerEvents: 'none' } : undefined}
+              >
+                <img
+                  src={fileUrl}
+                  alt={sheet.title}
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className="max-w-full max-h-full object-contain rounded-xl shadow-soft"
+                  style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none', pointerEvents: 'none' } as React.CSSProperties}
+                />
               </div>
             ) : null}
+
+            {/* Drawing canvas overlay */}
+            {selectedFormId && (
+              <DrawingCanvas
+                paths={currentPaths}
+                onPathsChange={handlePathsChange}
+                activeTool={drawingMode ? activeTool : null}
+                color={penColor}
+                strokeWidth={strokeWidth}
+                onPencilDoubleTap={() => setActiveTool(t => t === 'eraser' ? 'pen' : 'eraser')}
+              />
+            )}
           </div>
         </div>
 
