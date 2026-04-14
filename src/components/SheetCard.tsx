@@ -91,7 +91,8 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
     setEditing(false);
   };
 
-  const keys = [...new Set((sheet.song_forms ?? []).map(f => f.key).filter(Boolean))];
+  const formKeys = (sheet.song_forms ?? []).map(f => f.key).filter(Boolean) as string[];
+  const keys = [...new Set([...(sheet.key ? [sheet.key] : []), ...formKeys])];
   const currentVersion = sheet.sheet_versions?.[0];
 
   return (
