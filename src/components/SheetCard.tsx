@@ -49,6 +49,17 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
 
       {/* ── 헤더 ── */}
       <div>
+        {/* 송폼 키 뱃지들 */}
+        {(() => {
+          const keys = [...new Set((sheet.song_forms ?? []).map(f => f.key).filter(Boolean))];
+          return keys.length > 0 ? (
+            <div className="flex flex-wrap gap-1 mb-1">
+              {keys.map(k => (
+                <span key={k} className="px-1.5 py-0.5 bg-primary-100 text-primary-700 rounded-md text-xs font-semibold">{k}</span>
+              ))}
+            </div>
+          ) : null;
+        })()}
         <h3 className="text-base font-semibold text-neutral-900 mb-0.5">{sheet.title}</h3>
         {sheet.artist && <p className="text-sm text-neutral-500">{sheet.artist}</p>}
         <div className="flex flex-wrap gap-1.5 mt-2">

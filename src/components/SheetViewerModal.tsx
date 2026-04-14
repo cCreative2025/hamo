@@ -31,9 +31,10 @@ const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
     <div className="px-5 py-3 bg-neutral-900 text-white space-y-2 flex-shrink-0">
       {displayFlow.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-neutral-400 mr-1 font-medium">
-            {form.name}{form.key && `(${form.key})`}
-          </span>
+          {form.key && (
+            <span className="px-1.5 py-0.5 bg-white/20 text-white rounded-md text-xs font-semibold">{form.key}</span>
+          )}
+          <span className="text-xs text-neutral-400 font-medium">{form.name}</span>
           {displayFlow.map((s, i) => (
             <React.Fragment key={`${s.id}-${i}`}>
               {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
@@ -393,7 +394,12 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                         : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
-                    {form.name}{form.key && <span className="opacity-60 font-normal">{`(${form.key})`}</span>}
+                    {form.key && (
+                      <span className="mr-1.5 px-1.5 py-0.5 rounded-md text-xs font-semibold bg-primary-100 text-primary-700 inline-block"
+                        style={isSelected ? { backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' } : {}}
+                      >{form.key}</span>
+                    )}
+                    {form.name}
                     {hasDrawing && <span className="ml-1.5 opacity-60">✏️</span>}
                   </button>
                 );
