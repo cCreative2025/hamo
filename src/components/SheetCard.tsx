@@ -240,9 +240,17 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
               {!addingForm && (
                 <div className="flex gap-2 mt-auto">
                   {sheet.sheet_versions?.[0] && (
-                    <Button size="sm" variant="secondary" onClick={() => setViewing(true)} fullWidth>보기</Button>
+                    <Button size="sm" variant="primary" onClick={() => setViewing(true)} fullWidth>보기</Button>
                   )}
-                  <Button size="sm" variant="secondary" onClick={() => { setDraft({ title: sheet.title, artist: sheet.artist ?? '', genre: sheet.genre ?? '', key: sheet.key ?? '', tempo: sheet.tempo ?? '', time_signature: sheet.time_signature ?? '' }); setEditing(true); }}>수정</Button>
+                  <button
+                    onClick={() => { setDraft({ title: sheet.title, artist: sheet.artist ?? '', genre: sheet.genre ?? '', key: sheet.key ?? '', tempo: sheet.tempo ?? '', time_signature: sheet.time_signature ?? '' }); setEditing(true); }}
+                    className="p-2 rounded-xl bg-neutral-100 text-neutral-500 hover:bg-neutral-200 transition-colors flex-shrink-0"
+                    title="수정"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
                   {onDelete && (
                     <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>삭제</Button>
                   )}
