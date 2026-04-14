@@ -25,7 +25,6 @@ function getSectionColor(type: string) { return SECTION_COLORS[type] ?? 'bg-viol
 function getSectionBadge(type: string) { return SECTION_BADGE_COLORS[type] ?? 'bg-violet-600 text-white'; }
 
 const PEN_COLORS = ['#1e1e1e', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7'];
-const STROKE_WIDTHS = [{ label: '얇게', value: 2 }, { label: '보통', value: 5 }, { label: '굵게', value: 10 }];
 
 // ─── 송폼 흐름 바 ─────────────────────────────────────────────────────────────
 const SongFormBar: React.FC<{ form: SongForm; onEnterDrawing?: () => void }> = ({ form, onEnterDrawing }) => {
@@ -485,13 +484,18 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
               <div className="w-px h-4 bg-neutral-200" />
 
-              {/* 굵기 */}
-              <div className="flex items-center gap-0.5">
-                {STROKE_WIDTHS.map(sw => (
-                  <button key={sw.value} onClick={() => setStrokeWidth(sw.value)}
-                    className={`px-2 py-1 rounded-lg text-xs transition-colors ${strokeWidth === sw.value ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
-                  >{sw.label}</button>
-                ))}
+              {/* 굵기 슬라이더 */}
+              <div className="flex items-center gap-2">
+                <div
+                  className="rounded-full bg-neutral-800 flex-shrink-0"
+                  style={{ width: strokeWidth, height: strokeWidth, minWidth: 2, minHeight: 2 }}
+                />
+                <input
+                  type="range" min={1} max={20} step={1}
+                  value={strokeWidth}
+                  onChange={e => setStrokeWidth(Number(e.target.value))}
+                  className="w-20 accent-neutral-800"
+                />
               </div>
 
               {/* 되돌리기 */}
