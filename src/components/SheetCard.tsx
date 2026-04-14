@@ -31,6 +31,7 @@ interface SheetCardProps {
 }
 
 export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
+  const [expanded, setExpanded] = useState(false);
   const [addingForm, setAddingForm] = useState(false);
   const [newForm, setNewForm] = useState({
     name: '', key: '', sections: [] as SongSection[], flow: [] as FlowItem[], memo: '',
@@ -45,87 +46,102 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
     setAddingForm(false);
   };
 
-  return (
-    <div className="bg-white rounded-2xl border border-neutral-200 p-4 hover:shadow-soft transition-shadow flex flex-col gap-3">
+  const keys = [...new Set((sheet.song_forms ?? []).map(f => f.key).filter(Boolean))];
 
-      {/* ── 헤더 ── */}
-      <div>
-        {/* 송폼 키 뱃지들 */}
-        {(() => {
-          const keys = [...new Set((sheet.song_forms ?? []).map(f => f.key).filter(Boolean))];
-          return keys.length > 0 ? (
+  return (
+    <div className="bg-white rounded-2xl border border-neutral-200 hover:shadow-soft transition-shadow">
+
+      {/* ── 헤더 (항상 표시) ── */}
+      <div
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
+        onClick={() => setExpanded(v => !v)}
+      >
+        <div className="flex-1 min-w-0">
+          {keys.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-1">
               {keys.map(k => (
                 <span key={k} className="px-1.5 py-0.5 bg-primary-100 text-primary-700 rounded-md text-xs font-semibold">{k}</span>
               ))}
             </div>
-          ) : null;
-        })()}
-        <h3 className="text-base font-semibold text-neutral-900 mb-0.5">{sheet.title}</h3>
-        {sheet.artist && <p className="text-sm text-neutral-500">{sheet.artist}</p>}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {sheet.genre && <Tag color="primary">{sheet.genre}</Tag>}
-          {sheet.key   && <Tag>{sheet.key}</Tag>}
-          {sheet.tempo && <Tag>{sheet.tempo} BPM</Tag>}
-        </div>
-        <p className="text-xs text-neutral-400 mt-1.5">{formatDate(sheet.created_at)}</p>
-      </div>
-
-      {/* ── 송폼 목록 (항상 노출) ── */}
-      <div className="space-y-2">
-        {sheet.song_forms?.map((form) => (
-          <SongFormItem
-            key={form.id}
-            form={form}
-            onDelete={deleteSongForm}
-            onUpdate={updateSongForm}
-          />
-        ))}
-
-        {addingForm ? (
-          <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                value={newForm.name}
-                onChange={(e) => setNewForm((p) => ({ ...p, name: e.target.value }))}
-                placeholder="버전 이름 (예: E♭ 버전)"
-                autoFocus
-                className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-              />
-              <KeyPickerPopover
-                value={newForm.key}
-                onChange={(k) => setNewForm((p) => ({ ...p, key: k }))}
-              />
-            </div>
-            <SongFormBuilder
-              sections={newForm.sections}
-              flow={newForm.flow}
-              onChange={(sections, flow) => setNewForm((p) => ({ ...p, sections, flow }))}
-            />
-            <div className="flex gap-2">
-              <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>
-              <Button size="sm" variant="secondary" onClick={() => setAddingForm(false)}>취소</Button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAddingForm(true)}
-            className="w-full py-1.5 text-xs text-primary-500 border border-dashed border-primary-300 rounded-xl hover:bg-primary-50 transition-colors"
-          >
-            + 송폼 추가
-          </button>
-        )}
-      </div>
-
-      {/* ── 액션 ── */}
-      {!addingForm && (
-        <div className="flex gap-2 mt-auto">
-          {sheet.sheet_versions?.[0] && (
-            <Button size="sm" variant="secondary" onClick={() => setViewing(true)} fullWidth>보기</Button>
           )}
-          {onDelete && (
-            <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>삭제</Button>
+          <h3 className="text-base font-semibold text-neutral-900 truncate">{sheet.title}</h3>
+          {sheet.artist && <p className="text-sm text-neutral-500 truncate">{sheet.artist}</p>}
+        </div>
+        <svg
+          className={`w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {/* ── 펼쳐진 내용 ── */}
+      {expanded && (
+        <div className="px-4 pb-4 flex flex-col gap-3 border-t border-neutral-100">
+          <div className="flex flex-wrap gap-1.5 pt-3">
+            {sheet.genre && <Tag color="primary">{sheet.genre}</Tag>}
+            {sheet.key   && <Tag>{sheet.key}</Tag>}
+            {sheet.tempo && <Tag>{sheet.tempo} BPM</Tag>}
+            <span className="text-xs text-neutral-400 ml-auto">{formatDate(sheet.created_at)}</span>
+          </div>
+
+          {/* 송폼 목록 */}
+          <div className="space-y-2">
+            {sheet.song_forms?.map((form) => (
+              <SongFormItem
+                key={form.id}
+                form={form}
+                onDelete={deleteSongForm}
+                onUpdate={updateSongForm}
+              />
+            ))}
+
+            {addingForm ? (
+              <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={newForm.name}
+                    onChange={(e) => setNewForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="버전 이름 (예: E♭ 버전)"
+                    autoFocus
+                    className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                  />
+                  <KeyPickerPopover
+                    value={newForm.key}
+                    onChange={(k) => setNewForm((p) => ({ ...p, key: k }))}
+                  />
+                </div>
+                <SongFormBuilder
+                  sections={newForm.sections}
+                  flow={newForm.flow}
+                  onChange={(sections, flow) => setNewForm((p) => ({ ...p, sections, flow }))}
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setAddingForm(false)}>취소</Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAddingForm(true)}
+                className="w-full py-1.5 text-xs text-primary-500 border border-dashed border-primary-300 rounded-xl hover:bg-primary-50 transition-colors"
+              >
+                + 송폼 추가
+              </button>
+            )}
+          </div>
+
+          {/* 액션 */}
+          {!addingForm && (
+            <div className="flex gap-2 mt-auto">
+              {sheet.sheet_versions?.[0] && (
+                <Button size="sm" variant="secondary" onClick={() => setViewing(true)} fullWidth>보기</Button>
+              )}
+              {onDelete && (
+                <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>삭제</Button>
+              )}
+            </div>
           )}
         </div>
       )}
