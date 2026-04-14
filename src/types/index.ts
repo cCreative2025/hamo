@@ -52,6 +52,7 @@ export interface SongForm {
   chord_progression?: string; // 레거시 텍스트 (하위호환)
   sections?: SongSection[];   // 섹션 정의 (V1, V2 등)
   flow?: string[];            // 재생 순서 (섹션 ID 배열, 반복 포함)
+  drawing_data?: unknown[];   // 드로잉 레이어 (DrawPath[])
   memo?: string;
   created_by: string;
   created_at: string;
