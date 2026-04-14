@@ -31,10 +31,8 @@ const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
     <div className="px-5 py-3 bg-neutral-900 text-white space-y-2 flex-shrink-0">
       {displayFlow.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          {form.key && (
-            <span className="px-1.5 py-0.5 bg-white/20 text-white rounded-md text-xs font-semibold">{form.key}</span>
-          )}
-          <span className="text-xs text-neutral-400 font-medium">{form.name}</span>
+          <span className="text-xs text-neutral-500 font-medium">송폼</span>
+          <span className="text-neutral-600 text-xs select-none">|</span>
           {displayFlow.map((s, i) => (
             <React.Fragment key={`${s.id}-${i}`}>
               {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
