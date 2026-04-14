@@ -105,7 +105,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             {sheet.key && (
-              <span className="flex-shrink-0 px-1.5 py-0.5 bg-primary-100 text-primary-700 rounded-md text-xs font-semibold">{sheet.key} Key</span>
+              <span className="flex-shrink-0 px-1.5 py-0.5 bg-primary-100 text-primary-700 rounded-md text-xs font-semibold">{sheet.key}</span>
             )}
             {formKeys.map(k => (
               <span key={k} className="flex-shrink-0 px-1 py-0.5 bg-primary-50 text-primary-500 rounded text-[10px] font-medium">{k}</span>
@@ -195,7 +195,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
             <>
               <div className="flex flex-wrap gap-1.5 pt-3 items-center">
                 {sheet.genre && <Tag color="primary">{sheet.genre}</Tag>}
-                {sheet.key   && <Tag>{sheet.key}</Tag>}
+                {sheet.key   && <Tag color="primary">{sheet.key} Key</Tag>}
                 {sheet.tempo && <Tag>{sheet.tempo} BPM</Tag>}
                 {sheet.time_signature && <Tag>{sheet.time_signature}</Tag>}
                 {(sheet.youtube_urls?.length ?? 0) > 0 && (
