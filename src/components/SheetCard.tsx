@@ -7,6 +7,7 @@ import { Button } from './Button';
 import { useSheetStore } from '@/stores/sheetStore';
 import { SheetViewerModal } from './SheetViewerModal';
 import { SongFormBuilder, getSectionLabel } from './SongFormBuilder';
+import { KeyPickerPopover } from './KeyPickerPopover';
 
 // ─── 섹션 색상 헬퍼 ──────────────────────────────────────────────────────────
 const SECTION_COLORS: Record<string, string> = {
@@ -92,12 +93,9 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                 autoFocus
                 className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
               />
-              <input
-                type="text"
+              <KeyPickerPopover
                 value={newForm.key}
-                onChange={(e) => setNewForm((p) => ({ ...p, key: e.target.value }))}
-                placeholder="키 (예: E♭)"
-                className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                onChange={(k) => setNewForm((p) => ({ ...p, key: k }))}
               />
             </div>
             <SongFormBuilder
@@ -180,12 +178,9 @@ const SongFormItem: React.FC<{
             className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
             autoFocus
           />
-          <input
-            type="text"
+          <KeyPickerPopover
             value={draft.key}
-            onChange={(e) => setDraft(p => ({ ...p, key: e.target.value }))}
-            placeholder="키"
-            className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+            onChange={(k) => setDraft(p => ({ ...p, key: k }))}
           />
         </div>
         <SongFormBuilder
