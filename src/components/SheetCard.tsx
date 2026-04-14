@@ -102,14 +102,12 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
         onClick={() => { if (!editing) setExpanded(v => !v); }}
       >
         <div className="flex-1 min-w-0">
-          {keys.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-1">
-              {keys.map(k => (
-                <span key={k} className="px-1.5 py-0.5 bg-primary-100 text-primary-700 rounded-md text-xs font-semibold">{k}</span>
-              ))}
-            </div>
-          )}
-          <h3 className="text-base font-semibold text-neutral-900 truncate">{sheet.title}</h3>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {keys.map(k => (
+              <span key={k} className="flex-shrink-0 px-1.5 py-0.5 bg-primary-100 text-primary-700 rounded-md text-xs font-semibold">{k}</span>
+            ))}
+            <h3 className="text-base font-semibold text-neutral-900 truncate">{sheet.title}</h3>
+          </div>
           {sheet.artist && <p className="text-sm text-neutral-500 truncate">{sheet.artist}</p>}
         </div>
         <svg
