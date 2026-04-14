@@ -23,7 +23,9 @@ interface SessionStore {
   setError: (error: string | null) => void;
 
   // Session methods
-  createSession: (teamId: string, name: string, setlistSheetIds: string[]) => Promise<Session>;
+  sessions: Session[];
+  loadSessions: () => Promise<void>;
+  createSession: (name: string, sheetIds: string[], teamId?: string) => Promise<Session>;
   loadSession: (sessionId: string) => Promise<void>;
   endSession: (sessionId: string) => Promise<void>;
   addToSetlist: (sheetVersionId: string) => Promise<void>;
@@ -36,6 +38,7 @@ interface SessionStore {
 }
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
+  sessions: [],
   currentSession: null,
   setlist: [],
   currentSongIndex: 0,
@@ -54,7 +57,26 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
 
-  createSession: async (teamId: string, name: string, setlistSheetIds: string[]) => {
+  loadSessions: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('created_by', user.id)
+        .order('started_at', { ascending: false });
+
+      if (error) throw error;
+      set({ sessions: data || [], isLoading: false });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to load sessions', isLoading: false });
+    }
+  },
+
+  createSession: async (name: string, sheetIds: string[], teamId?: string) => {
     set({ isLoading: true, error: null });
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -62,48 +84,42 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       const { data: sessionData, error: sessionError } = await supabase
         .from('sessions')
-        .insert([
-          {
-            team_id: teamId,
-            name,
-            created_by: user.id,
-            status: 'active',
-            current_song_index: 0,
-            tempo: 100,
-            started_at: new Date().toISOString(),
-          },
-        ])
+        .insert([{
+          ...(teamId ? { team_id: teamId } : {}),
+          name,
+          created_by: user.id,
+          status: 'active',
+          current_song_index: 0,
+          tempo: 100,
+          started_at: new Date().toISOString(),
+        }])
         .select()
         .single();
 
       if (sessionError) throw sessionError;
 
-      // Add songs to setlist
-      const setlistInserts = setlistSheetIds.map((sheetVersionId, index) => ({
-        session_id: sessionData.id,
-        sheet_version_id: sheetVersionId,
-        sequence_order: index,
-      }));
+      if (sheetIds.length > 0) {
+        const { error: setlistError } = await supabase
+          .from('session_songs')
+          .insert(sheetIds.map((sheetId, i) => ({
+            session_id: sessionData.id,
+            sheet_version_id: sheetId,
+            sequence_order: i,
+          })));
+        if (setlistError) throw setlistError;
+      }
 
-      const { error: setlistError } = await supabase
-        .from('session_songs')
-        .insert(setlistInserts);
-
-      if (setlistError) throw setlistError;
-
-      set({
+      set((state) => ({
+        sessions: [sessionData, ...state.sessions],
         currentSession: sessionData,
         currentSongIndex: 0,
         tempo: 100,
         isLoading: false,
-      });
+      }));
 
       return sessionData;
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to create session',
-        isLoading: false,
-      });
+      set({ error: error instanceof Error ? error.message : 'Failed to create session', isLoading: false });
       throw error;
     }
   },
