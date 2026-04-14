@@ -186,9 +186,9 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                 </button>
               </div>
 
-              <div className="flex gap-2">
-                <Button size="sm" variant="primary" onClick={handleEditSave} isLoading={replacing}>저장</Button>
+              <div className="flex gap-2 justify-end">
                 <Button size="sm" variant="secondary" onClick={() => { setEditing(false); setReplaceFile(null); }}>취소</Button>
+                <Button size="sm" variant="primary" onClick={handleEditSave} isLoading={replacing}>저장</Button>
               </div>
             </div>
           ) : (
@@ -224,9 +224,9 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                       showMemo
                       autoFocus
                     />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>
+                    <div className="flex gap-2 justify-end">
                       <Button size="sm" variant="secondary" onClick={() => setAddingForm(false)}>취소</Button>
+                      <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>
                     </div>
                   </div>
                 ) : (
@@ -326,9 +326,9 @@ const SongFormItem: React.FC<{
           defaultTempo={sheetTempo}
           autoFocus
         />
-        <div className="flex gap-2">
-          <Button size="sm" variant="primary" onClick={handleSave}>저장</Button>
+        <div className="flex gap-2 justify-end">
           <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>취소</Button>
+          <Button size="sm" variant="primary" onClick={handleSave}>저장</Button>
         </div>
       </div>
     );
