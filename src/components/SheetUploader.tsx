@@ -45,7 +45,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
     tempo: undefined,
     time_signature: '',
     youtube_urls: [] as YtLink[],
-    songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' },
+    songForm: undefined,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +84,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
       // 폼 초기화
       setFile(null);
       setThumbnail(null);
-      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', youtube_urls: [] as YtLink[], songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' } });
+      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', youtube_urls: [] as YtLink[], songForm: undefined });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -256,19 +256,40 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
       </div>
 
       {/* Song Form */}
-      <div className="mb-6 border border-neutral-200 rounded-xl p-4 bg-neutral-50">
-        <h4 className="text-sm font-semibold text-neutral-700 mb-4">송폼</h4>
-        <SongFormInput
-          value={{
-            name: formData.songForm?.name ?? '기본',
-            key: formData.songForm?.key ?? '',
-            sections: formData.songForm?.sections ?? [],
-            flow: (formData.songForm?.flow ?? []) as FlowItem[],
-            memo: formData.songForm?.memo ?? '',
-          }}
-          onChange={(v: SongFormInputValue) => setFormData(p => ({ ...p, songForm: { ...p.songForm!, name: v.name, key: v.key, sections: v.sections, flow: v.flow, memo: v.memo } }))}
-          showMemo
-        />
+      <div className="mb-6">
+        {formData.songForm ? (
+          <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-semibold text-neutral-700">송폼</h4>
+              <button
+                type="button"
+                onClick={() => setFormData(p => ({ ...p, songForm: undefined }))}
+                className="text-xs text-neutral-400 hover:text-error-500 transition-colors"
+              >
+                제거
+              </button>
+            </div>
+            <SongFormInput
+              value={{
+                name: formData.songForm.name,
+                key: formData.songForm.key ?? '',
+                sections: formData.songForm.sections ?? [],
+                flow: (formData.songForm.flow ?? []) as FlowItem[],
+                memo: formData.songForm.memo ?? '',
+              }}
+              onChange={(v: SongFormInputValue) => setFormData(p => ({ ...p, songForm: { ...p.songForm!, name: v.name, key: v.key, sections: v.sections, flow: v.flow, memo: v.memo } }))}
+              showMemo
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setFormData(p => ({ ...p, songForm: { name: '', key: '', sections: [], flow: [], memo: '' } }))}
+            className="w-full py-2 text-sm text-primary-500 border border-dashed border-primary-300 rounded-xl hover:bg-primary-50 transition-colors"
+          >
+            + 송폼 추가
+          </button>
+        )}
       </div>
 
       {/* Submit Button */}
