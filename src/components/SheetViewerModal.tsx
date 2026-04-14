@@ -219,12 +219,14 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
   const currentPaths = selectedFormId ? (drawingsByForm[selectedFormId] ?? []) : [];
 
-  // 자동저장 — setState 없이 DB만 debounce 저장 (리렌더 없음)
+  // 자동저장 — debounce 후 DB 저장, saving 상태로 인디케이터 표시
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSave = useCallback((formId: string, paths: DrawPath[]) => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      updateSongForm(formId, { drawing_data: paths } as never);
+    autoSaveTimer.current = setTimeout(async () => {
+      setSaving(true);
+      await updateSongForm(formId, { drawing_data: paths } as never);
+      setSaving(false);
     }, 1500);
   }, [updateSongForm]);
 
@@ -414,7 +416,11 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                 <button onClick={handleSaveAndExit} disabled={saving}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-700 disabled:opacity-60 transition-colors"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                  {saving ? (
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                  )}
                   {saving ? '저장 중...' : '저장'}
                 </button>
                 <button onClick={() => setCancelPending(true)}
