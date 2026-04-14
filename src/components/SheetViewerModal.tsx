@@ -263,7 +263,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
       className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm ${drawingMode ? 'bg-black p-0' : 'bg-black/60 p-4'}`}
       onClick={(e) => { if (!drawingMode && e.target === e.currentTarget) onClose(); }}
     >
-      <div className={`bg-white flex flex-col overflow-hidden ${drawingMode ? 'w-full h-full rounded-none' : 'rounded-2xl shadow-soft-lg w-full max-w-4xl max-h-[90vh]'}`}>
+      <div className={`bg-white flex flex-col overflow-hidden ${drawingMode ? 'w-full h-full rounded-none' : 'rounded-2xl shadow-soft-lg w-full max-w-4xl h-[90vh]'}`}>
 
         {/* ── Header ── */}
         <div className="border-b border-neutral-200 flex-shrink-0">
