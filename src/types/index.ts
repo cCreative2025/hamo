@@ -38,9 +38,10 @@ export interface TeamInvite {
 
 // Sheet-related types
 export interface SongSection {
-  id: string;        // nanoid (클라이언트 생성)
-  type: string;      // 'I' | 'V' | 'PC' | 'C' | 'B' | 'O' | custom
-  chords: string[];  // ['Am', 'F', 'C', 'G']
+  id: string;           // nanoid (클라이언트 생성)
+  type: string;         // 'I' | 'V' | 'PC' | 'C' | 'B' | 'O' | 'custom'
+  chords: string[];     // ['Am', 'F', 'C', 'G']
+  customLabel?: string; // 커스텀 표시 레이블 (있으면 type 기반 자동 번호 대신 사용)
 }
 
 export interface SongForm {

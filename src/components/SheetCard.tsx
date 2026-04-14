@@ -21,6 +21,7 @@ const SECTION_COLORS: Record<string, string> = {
 function getSectionLabel(sections: SongSection[], id: string): string {
   const target = sections.find(s => s.id === id);
   if (!target) return '';
+  if (target.customLabel) return target.customLabel;
   const sameType = sections.filter(s => s.type === target.type);
   return sameType.length === 1 ? target.type : `${target.type}${sameType.findIndex(s => s.id === id) + 1}`;
 }

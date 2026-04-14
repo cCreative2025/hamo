@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { SongSection } from '@/types';
 
 // ─── 섹션 타입 정의 ───────────────────────────────────────────────────────────
 const SECTION_TYPES = [
-  { type: 'I',  label: '인트로',     short: 'I',  color: 'bg-neutral-100 text-neutral-600 border-neutral-300' },
-  { type: 'V',  label: '버스',       short: 'V',  color: 'bg-primary-100 text-primary-700 border-primary-300' },
-  { type: 'PC', label: '프리코러스', short: 'PC', color: 'bg-warning-100 text-warning-700 border-warning-300' },
-  { type: 'C',  label: '코러스',     short: 'C',  color: 'bg-secondary-100 text-secondary-700 border-secondary-300' },
-  { type: 'B',  label: '브릿지',     short: 'B',  color: 'bg-success-100 text-success-700 border-success-300' },
-  { type: 'O',  label: '아웃트로',   short: 'O',  color: 'bg-neutral-100 text-neutral-500 border-neutral-200' },
+  { type: 'I',  label: '인트로',     color: 'bg-neutral-100 text-neutral-600 border-neutral-300' },
+  { type: 'V',  label: '버스',       color: 'bg-primary-100 text-primary-700 border-primary-300' },
+  { type: 'PC', label: '프리코러스', color: 'bg-warning-100 text-warning-700 border-warning-300' },
+  { type: 'C',  label: '코러스',     color: 'bg-secondary-100 text-secondary-700 border-secondary-300' },
+  { type: 'B',  label: '브릿지',     color: 'bg-success-100 text-success-700 border-success-300' },
+  { type: 'O',  label: '아웃트로',   color: 'bg-neutral-100 text-neutral-500 border-neutral-200' },
 ] as const;
 
 // ─── 코드 정의 ────────────────────────────────────────────────────────────────
@@ -29,10 +29,11 @@ const QUALITIES = [
 
 // ─── 헬퍼 ─────────────────────────────────────────────────────────────────────
 
-/** 섹션 배열에서 type별 순서 번호 계산 → 표시 레이블 */
-function getSectionLabel(sections: SongSection[], targetId: string): string {
+/** customLabel이 있으면 그대로 사용, 없으면 type별 순서 번호 계산 */
+export function getSectionLabel(sections: SongSection[], targetId: string): string {
   const target = sections.find(s => s.id === targetId);
   if (!target) return '';
+  if (target.customLabel) return target.customLabel;
   const sameType = sections.filter(s => s.type === target.type);
   if (sameType.length === 1) return target.type;
   return `${target.type}${sameType.findIndex(s => s.id === targetId) + 1}`;
@@ -40,8 +41,8 @@ function getSectionLabel(sections: SongSection[], targetId: string): string {
 
 function getSectionMeta(type: string) {
   return SECTION_TYPES.find(s => s.type === type) ?? {
-    type, label: type, short: type,
-    color: 'bg-neutral-100 text-neutral-600 border-neutral-300',
+    type, label: type,
+    color: 'bg-violet-100 text-violet-700 border-violet-300',
   };
 }
 
@@ -59,16 +60,32 @@ interface SongFormBuilderProps {
 export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onChange }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingRoot, setPendingRoot] = useState<string | null>(null);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customInput, setCustomInput] = useState('');
+  const customInputRef = useRef<HTMLInputElement>(null);
 
   const selectedSection = sections.find(s => s.id === selectedId) ?? null;
 
+  useEffect(() => {
+    if (showCustomInput) customInputRef.current?.focus();
+  }, [showCustomInput]);
+
   // 섹션 추가
-  const addSection = useCallback((type: string) => {
-    const newSection: SongSection = { id: uid(), type, chords: [] };
+  const addSection = useCallback((type: string, customLabel?: string) => {
+    const newSection: SongSection = { id: uid(), type, chords: [], ...(customLabel ? { customLabel } : {}) };
     const next = [...sections, newSection];
     onChange(next);
     setSelectedId(newSection.id);
   }, [sections, onChange]);
+
+  // 커스텀 섹션 추가 확정
+  const confirmCustomSection = () => {
+    const label = customInput.trim();
+    if (!label) return;
+    addSection('custom', label);
+    setCustomInput('');
+    setShowCustomInput(false);
+  };
 
   // 섹션 삭제
   const removeSection = useCallback((id: string) => {
@@ -76,10 +93,15 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onCh
     if (selectedId === id) setSelectedId(null);
   }, [sections, onChange, selectedId]);
 
-  // 코드 추가 (루트 선택 → 퀄리티 선택 → 추가)
-  const handleRootClick = (root: string) => {
-    setPendingRoot(root);
+  // 선택 섹션 커스텀 레이블 수정
+  const updateCustomLabel = (id: string, label: string) => {
+    onChange(sections.map(s =>
+      s.id === id ? { ...s, customLabel: label || undefined } : s
+    ));
   };
+
+  // 코드 추가
+  const handleRootClick = (root: string) => setPendingRoot(root);
 
   const handleQualityClick = (quality: string) => {
     if (!pendingRoot || !selectedId) return;
@@ -151,15 +173,63 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onCh
               + {label}
             </button>
           ))}
+
+          {/* 커스텀 버튼 */}
+          {!showCustomInput ? (
+            <button
+              type="button"
+              onClick={() => setShowCustomInput(true)}
+              className="px-3 py-1.5 rounded-xl border text-xs font-medium transition-all hover:scale-105 bg-violet-100 text-violet-700 border-violet-300"
+            >
+              + 커스텀
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <input
+                ref={customInputRef}
+                value={customInput}
+                onChange={e => setCustomInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') confirmCustomSection();
+                  if (e.key === 'Escape') { setShowCustomInput(false); setCustomInput(''); }
+                }}
+                placeholder="예: 솔로(기타)"
+                className="px-2.5 py-1.5 rounded-xl border border-violet-300 text-xs outline-none focus:border-violet-500 w-32"
+              />
+              <button
+                type="button"
+                onClick={confirmCustomSection}
+                className="px-2.5 py-1.5 rounded-xl bg-violet-500 text-white text-xs font-medium hover:bg-violet-600 transition-all"
+              >추가</button>
+              <button
+                type="button"
+                onClick={() => { setShowCustomInput(false); setCustomInput(''); }}
+                className="px-2 py-1.5 rounded-xl border border-neutral-200 text-xs text-neutral-400 hover:bg-neutral-100 transition-all"
+              >취소</button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── 선택된 섹션 코드 편집 ── */}
+      {/* ── 선택된 섹션 편집 ── */}
       {selectedSection && (
         <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
-          <p className="text-xs font-semibold text-primary-700">
-            {getSectionLabel(sections, selectedSection.id)} 코드 편집
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-primary-700">
+              {getSectionLabel(sections, selectedSection.id)} 편집
+            </p>
+          </div>
+
+          {/* 레이블 커스텀 */}
+          <div>
+            <p className="text-xs text-neutral-500 mb-1">레이블 (선택)</p>
+            <input
+              value={selectedSection.customLabel ?? ''}
+              onChange={e => updateCustomLabel(selectedSection.id, e.target.value)}
+              placeholder={`기본: ${getSectionLabel(sections.map(s => s.id === selectedSection.id ? { ...s, customLabel: undefined } : s), selectedSection.id)}`}
+              className="w-full px-2.5 py-1.5 rounded-xl border border-primary-200 text-xs outline-none focus:border-primary-400 bg-white"
+            />
+          </div>
 
           {/* 현재 코드 목록 */}
           <div className="flex flex-wrap gap-1.5 min-h-8">
@@ -202,7 +272,7 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onCh
             </div>
           </div>
 
-          {/* 퀄리티 선택 (루트 선택 후 표시) */}
+          {/* 퀄리티 선택 */}
           {pendingRoot && (
             <div>
               <div className="flex flex-wrap gap-1.5">
