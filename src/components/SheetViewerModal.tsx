@@ -219,16 +219,6 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
   const currentPaths = selectedFormId ? (drawingsByForm[selectedFormId] ?? []) : [];
 
-  // 자동저장 — debounce 후 DB 저장, saving 상태로 인디케이터 표시
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoSave = useCallback((formId: string, paths: DrawPath[]) => {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(async () => {
-      setSaving(true);
-      await updateSongForm(formId, { drawing_data: paths } as never);
-      setSaving(false);
-    }, 1500);
-  }, [updateSongForm]);
 
   // 스트로크 완료 — ref만 업데이트, setState 없음 (리렌더 없음)
   const handlePathsChange = useCallback((paths: DrawPath[]) => {
@@ -238,8 +228,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     redoStackByFormRef.current[selectedFormId] = [];
     drawingsByFormRef.current[selectedFormId] = paths;
     syncUndoRedoButtons(selectedFormId);
-    autoSave(selectedFormId, paths);
-  }, [selectedFormId, syncUndoRedoButtons, autoSave]);
+  }, [selectedFormId, syncUndoRedoButtons]);
 
   // undo/redo/clear — ref 업데이트 + 캔버스 전체 재렌더를 위해 setState 호출
   const handleUndo = () => {
@@ -252,7 +241,6 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     redoStackByFormRef.current[selectedFormId] = [...(redoStackByFormRef.current[selectedFormId] ?? []), current];
     drawingsByFormRef.current[selectedFormId] = before;
     syncUndoRedoButtons(selectedFormId);
-    autoSave(selectedFormId, before);
     startTransition(() => setDrawingsByForm({ ...drawingsByFormRef.current }));
   };
 
@@ -266,7 +254,6 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     undoStackByFormRef.current[selectedFormId] = [...(undoStackByFormRef.current[selectedFormId] ?? []), current];
     drawingsByFormRef.current[selectedFormId] = next;
     syncUndoRedoButtons(selectedFormId);
-    autoSave(selectedFormId, next);
     startTransition(() => setDrawingsByForm({ ...drawingsByFormRef.current }));
   };
 
@@ -277,7 +264,6 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     redoStackByFormRef.current[selectedFormId] = [];
     drawingsByFormRef.current[selectedFormId] = [];
     syncUndoRedoButtons(selectedFormId);
-    autoSave(selectedFormId, []);
     startTransition(() => setDrawingsByForm({ ...drawingsByFormRef.current }));
     setClearPending(false);
   };
