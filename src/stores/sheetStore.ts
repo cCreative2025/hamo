@@ -38,7 +38,7 @@ interface SheetStore {
   applyFilters: () => void;
 
   // Song form methods
-  addSongForm: (sheetId: string, form: { name: string; key?: string; chord_progression?: string; memo?: string }) => Promise<SongForm>;
+  addSongForm: (sheetId: string, form: { name: string; key?: string; sections?: SongForm['sections']; memo?: string }) => Promise<SongForm>;
   updateSongForm: (formId: string, updates: Partial<Pick<SongForm, 'name' | 'key' | 'chord_progression' | 'memo'>>) => Promise<void>;
   deleteSongForm: (formId: string) => Promise<void>;
 }
@@ -73,7 +73,7 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
     try {
       let query = supabase
         .from('sheets')
-        .select('*, sheet_versions(id, file_path, file_type, file_size, page_count, version_number, uploaded_by, created_at), song_forms(id, name, key, chord_progression, memo, created_by, created_at, updated_at)')
+        .select('*, sheet_versions(id, file_path, file_type, file_size, page_count, version_number, uploaded_by, created_at), song_forms(id, name, key, chord_progression, sections, memo, created_by, created_at, updated_at)')
         .order('updated_at', { ascending: false });
 
       if (teamId) {

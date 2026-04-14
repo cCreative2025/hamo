@@ -37,12 +37,19 @@ export interface TeamInvite {
 }
 
 // Sheet-related types
+export interface SongSection {
+  id: string;        // nanoid (클라이언트 생성)
+  type: string;      // 'I' | 'V' | 'PC' | 'C' | 'B' | 'O' | custom
+  chords: string[];  // ['Am', 'F', 'C', 'G']
+}
+
 export interface SongForm {
   id: string;
   sheet_id: string;
   name: string;
   key?: string;
-  chord_progression?: string;
+  chord_progression?: string; // 레거시 텍스트 (하위호환)
+  sections?: SongSection[];   // 신규 구조화 데이터
   memo?: string;
   created_by: string;
   created_at: string;

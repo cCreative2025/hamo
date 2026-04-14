@@ -132,7 +132,7 @@ export default function SheetsPage() {
                       sheet_id: sheetData.id,
                       name: data.songForm.name,
                       key: data.songForm.key || null,
-                      chord_progression: data.songForm.chord_progression || null,
+                      sections: data.songForm.sections ?? [],
                       memo: data.songForm.memo || null,
                       created_by: currentUser.id,
                     });

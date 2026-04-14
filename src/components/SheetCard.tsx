@@ -6,6 +6,8 @@ import { formatDate } from '@/lib/utils';
 import { Button } from './Button';
 import { useSheetStore } from '@/stores/sheetStore';
 import { SheetViewerModal } from './SheetViewerModal';
+import { SongFormBuilder } from './SongFormBuilder';
+import { SongSection } from '@/types';
 
 interface SheetCardProps {
   sheet: Sheet;
@@ -16,7 +18,7 @@ interface SheetCardProps {
 export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete }) => {
   const [expanded, setExpanded] = useState(false);
   const [addingForm, setAddingForm] = useState(false);
-  const [newForm, setNewForm] = useState({ name: '', key: '', chord_progression: '', memo: '' });
+  const [newForm, setNewForm] = useState({ name: '', key: '', sections: [] as SongSection[], memo: '' });
   const [viewing, setViewing] = useState(false);
   const { addSongForm, deleteSongForm } = useSheetStore();
 
@@ -75,28 +77,27 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete 
             ))}
 
             {addingForm ? (
-              <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-2">
-                <input
-                  type="text"
-                  value={newForm.name}
-                  onChange={(e) => setNewForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="버전 이름 (예: E♭ 버전)"
-                  className="w-full px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-                  autoFocus
-                />
-                <input
-                  type="text"
-                  value={newForm.key}
-                  onChange={(e) => setNewForm((p) => ({ ...p, key: e.target.value }))}
-                  placeholder="키 (예: E♭)"
-                  className="w-full px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-                />
-                <textarea
-                  value={newForm.chord_progression}
-                  onChange={(e) => setNewForm((p) => ({ ...p, chord_progression: e.target.value }))}
-                  placeholder="코드 진행"
-                  rows={2}
-                  className="w-full px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
+              <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={newForm.name}
+                    onChange={(e) => setNewForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="버전 이름 (예: E♭ 버전)"
+                    className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                    autoFocus
+                  />
+                  <input
+                    type="text"
+                    value={newForm.key}
+                    onChange={(e) => setNewForm((p) => ({ ...p, key: e.target.value }))}
+                    placeholder="키 (예: E♭)"
+                    className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                  />
+                </div>
+                <SongFormBuilder
+                  sections={newForm.sections}
+                  onChange={(sections) => setNewForm((p) => ({ ...p, sections }))}
                 />
                 <div className="flex gap-2">
                   <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>

@@ -3,7 +3,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './Button';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SongFormBuilder } from './SongFormBuilder';
 import { formatFileSize } from '@/lib/utils';
+import { SongSection } from '@/types';
 
 interface SheetUploaderProps {
   onUpload: (file: File, sheetData: SheetUploadData) => Promise<void>;
@@ -13,7 +15,7 @@ interface SheetUploaderProps {
 export interface SongFormData {
   name: string;
   key?: string;
-  chord_progression?: string;
+  sections?: SongSection[];
   memo?: string;
 }
 
@@ -38,7 +40,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
     key: '',
     tempo: undefined,
     time_signature: '',
-    songForm: { name: '기본', key: '', chord_progression: '', memo: '' },
+    songForm: { name: '기본', key: '', sections: [], memo: '' },
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,7 +79,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
       // 폼 초기화
       setFile(null);
       setThumbnail(null);
-      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', songForm: { name: '기본', key: '', chord_progression: '', memo: '' } });
+      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', songForm: { name: '기본', key: '', sections: [], memo: '' } });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -249,8 +251,8 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
 
       {/* Song Form */}
       <div className="mb-6 border border-neutral-200 rounded-xl p-4 bg-neutral-50">
-        <h4 className="text-sm font-semibold text-neutral-700 mb-3">송폼 (코드 진행)</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+        <h4 className="text-sm font-semibold text-neutral-700 mb-4">송폼</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-xs font-medium text-neutral-600 mb-1">버전 이름</label>
             <input
@@ -272,17 +274,11 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
             />
           </div>
         </div>
-        <div className="mb-3">
-          <label className="block text-xs font-medium text-neutral-600 mb-1">코드 진행</label>
-          <textarea
-            value={formData.songForm?.chord_progression || ''}
-            onChange={(e) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, chord_progression: e.target.value } }))}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-            rows={3}
-            placeholder="예: 인트로: Am - F - C - G&#10;벌스: Am - F - C - G&#10;코러스: F - G - Am - C"
-          />
-        </div>
-        <div>
+        <SongFormBuilder
+          sections={formData.songForm?.sections ?? []}
+          onChange={(sections) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, sections } }))}
+        />
+        <div className="mt-4">
           <label className="block text-xs font-medium text-neutral-600 mb-1">메모</label>
           <input
             type="text"
