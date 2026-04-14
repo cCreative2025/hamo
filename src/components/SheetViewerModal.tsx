@@ -418,15 +418,15 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         {/* ── Sheet viewer + canvas overlay ── */}
         <div
           ref={contentWrapRef}
-          className="flex-1 flex flex-col relative overflow-hidden"
+          className="flex-1 min-h-0 relative overflow-hidden"
           style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
           onTouchStart={drawingMode ? handlePinchStart : undefined}
           onTouchMove={drawingMode ? handlePinchMove : undefined}
           onTouchEnd={drawingMode ? handlePinchEnd : undefined}
         >
-          {/* 줌/이동 적용 inner wrapper */}
+          {/* 줌/이동 transform wrapper — absolute inset-0 으로 부모 완전히 채움 */}
           <div
-            className="flex-1 relative"
+            className="absolute inset-0"
             style={drawingMode && (zoomScale !== 1 || zoomOffset.x !== 0 || zoomOffset.y !== 0) ? {
               transform: `translate(${zoomOffset.x}px, ${zoomOffset.y}px) scale(${zoomScale})`,
               transformOrigin: '0 0',
@@ -439,7 +439,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
             ) : error ? (
               <div className="absolute inset-0 flex items-center justify-center text-error-500 text-sm">{error}</div>
             ) : fileType === 'pdf' && fileUrl ? (
-              <div className="absolute inset-0">
+              <div className="absolute inset-0 flex flex-col">
                 <PDFViewer fileUrl={fileUrl} />
               </div>
             ) : fileUrl ? (
