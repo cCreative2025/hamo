@@ -184,7 +184,7 @@ export default function SheetsPage() {
                   <div className="flex-1 h-px bg-neutral-200" />
                   <span className="text-xs text-neutral-400">{grouped[initial].length}곡</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-3">
                   {grouped[initial].map((sheet) => (
                     <SheetCard
                       key={sheet.id}
