@@ -13,7 +13,7 @@ export interface DrawPath {
 interface DrawingCanvasProps {
   paths: DrawPath[];
   onPathsChange: (paths: DrawPath[]) => void;
-  activeTool: 'pen' | 'eraser' | null; // null = disabled
+  activeTool: 'pen' | 'eraser' | null;
   color: string;
   strokeWidth: number;
 }
@@ -47,7 +47,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const drawingRef = useRef(false);
   const currentPathRef = useRef<DrawPath | null>(null);
+  const prevPointRef = useRef<{ x: number; y: number } | null>(null);
+  const pathsRef = useRef<DrawPath[]>(paths); // 항상 최신 paths (re-render 안 기다림)
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
+
+  // pathsRef를 props와 동기화
+  useEffect(() => { pathsRef.current = paths; }, [paths]);
 
   // Sync canvas dimensions with container
   useEffect(() => {
@@ -70,6 +75,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (ctx) renderPaths(ctx, paths, canvasSize.w, canvasSize.h);
   }, [canvasSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // paths prop 바뀔 때 (undo/redo/외부 변경) 전체 재렌더
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || canvasSize.w === 0) return;
@@ -88,7 +94,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   }, []);
 
   const startDraw = useCallback((e: React.PointerEvent) => {
-    // 손가락 터치는 줌/이동으로 사용 — 그리기 무시
     if (!activeTool || e.pointerType === 'touch') return;
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -96,6 +101,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const pt = getPoint(e);
     if (!pt) return;
     currentPathRef.current = { id: uid(), tool: activeTool, color, width: strokeWidth, points: [pt] };
+    prevPointRef.current = pt;
   }, [activeTool, color, strokeWidth, getPoint]);
 
   const draw = useCallback((e: React.PointerEvent) => {
@@ -103,22 +109,40 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     e.preventDefault();
     const pt = getPoint(e);
     if (!pt) return;
+    const prev = prevPointRef.current;
     currentPathRef.current.points.push(pt);
+    prevPointRef.current = pt;
+
+    // 새 선분만 증분 렌더링 (전체 재렌더 X)
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !prev) return;
     const ctx = canvas.getContext('2d');
-    if (ctx) renderPaths(ctx, [...paths, currentPathRef.current], canvas.width, canvas.height);
-  }, [activeTool, paths, getPoint]);
+    if (!ctx) return;
+    const path = currentPathRef.current;
+    ctx.save();
+    ctx.globalCompositeOperation = path.tool === 'eraser' ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = path.tool === 'eraser' ? 'rgba(0,0,0,1)' : path.color;
+    ctx.lineWidth = path.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(prev.x * canvas.width, prev.y * canvas.height);
+    ctx.lineTo(pt.x * canvas.width, pt.y * canvas.height);
+    ctx.stroke();
+    ctx.restore();
+  }, [activeTool, getPoint]);
 
   const endDraw = useCallback((e: React.PointerEvent) => {
     if (e.pointerType === 'touch') return;
     if (!drawingRef.current || !currentPathRef.current) return;
     drawingRef.current = false;
+    prevPointRef.current = null;
     if (currentPathRef.current.points.length >= 2) {
-      onPathsChange([...paths, currentPathRef.current]);
+      // pathsRef 사용 → re-render 기다리지 않고 즉시 최신 paths 참조
+      onPathsChange([...pathsRef.current, currentPathRef.current]);
     }
     currentPathRef.current = null;
-  }, [paths, onPathsChange]);
+  }, [onPathsChange]);
 
   return (
     <div ref={containerRef} className="absolute inset-0" style={{ pointerEvents: activeTool ? 'auto' : 'none' }}>
@@ -128,7 +152,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         style={{
           pointerEvents: activeTool ? 'auto' : 'none',
           cursor: activeTool === 'pen' ? 'crosshair' : activeTool === 'eraser' ? 'cell' : 'default',
-          touchAction: 'none', // 브라우저 기본 터치 제스처 비활성 (터치 이벤트는 부모로 버블링)
+          touchAction: 'none',
         }}
         onPointerDown={startDraw}
         onPointerMove={draw}
