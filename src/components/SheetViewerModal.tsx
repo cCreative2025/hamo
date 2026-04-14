@@ -435,7 +435,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
           {/* Row 2: 드로잉 도구 (드로잉 모드일 때만) */}
           {drawingMode && !cancelPending && (
             <div className="flex items-center gap-2 px-5 pb-3">
-              {/* 색상 */}
+              {/* 색상 + 지우개 */}
               <div className="flex items-center gap-2">
                 {PEN_COLORS.map(c => {
                   const isSelected = penColor === c && activeTool === 'pen';
@@ -452,6 +452,15 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                     />
                   );
                 })}
+                {/* 지우개 */}
+                <button onClick={() => setActiveTool('eraser')} title="지우개"
+                  className={`p-1 rounded-lg transition-colors ${activeTool === 'eraser' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'}`}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 20H7L3 16l10-10 7 7-3.5 3.5" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6.5 17.5l4-4" />
+                  </svg>
+                </button>
               </div>
 
               <div className="w-px h-4 bg-neutral-200" />
@@ -464,17 +473,6 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                   >{sw.label}</button>
                 ))}
               </div>
-
-              <div className="w-px h-4 bg-neutral-200" />
-
-              {/* 지우개 */}
-              <button onClick={() => setActiveTool('eraser')} title="지우개"
-                className={`p-1.5 rounded-lg transition-colors ${activeTool === 'eraser' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
 
               {/* 되돌리기 */}
               <button onClick={handleUndo} disabled={!canUndo} title="되돌리기"
@@ -509,7 +507,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                   className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
                   </svg>
                 </button>
               )}
