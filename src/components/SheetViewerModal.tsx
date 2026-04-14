@@ -123,7 +123,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const [copyTargetForm, setCopyTargetForm] = useState<{ id: string; name: string; key?: string } | null>(null);
   const [cancelPending, setCancelPending] = useState(false);
   const [clearPending, setClearPending] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saving, setSaving] = useState(false);
   const snapshotRef = useRef<DrawPath[]>([]);
   const copyMenuRef = useRef<HTMLDivElement>(null);
 
@@ -219,35 +219,17 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
   const currentPaths = selectedFormId ? (drawingsByForm[selectedFormId] ?? []) : [];
 
-  // Debounced save (direct, no stack manipulation)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const savePathsDebounced = useCallback((formId: string, paths: DrawPath[]) => {
-    drawingsByFormRef.current = { ...drawingsByFormRef.current, [formId]: paths };
-    // 저우선도 전환 — 다음 포인터 이벤트(스트로크)가 블로킹되지 않도록
-    startTransition(() => {
-      setDrawingsByForm({ ...drawingsByFormRef.current });
-      setSaveStatus('saving');
-    });
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      await updateSongForm(formId, { drawing_data: paths } as never);
-      startTransition(() => {
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      });
-    }, 1000);
-  }, [updateSongForm]);
-
-  // Called by DrawingCanvas when user draws a new stroke
+  // 스트로크 완료 — ref만 업데이트, setState 없음 (리렌더 없음)
   const handlePathsChange = useCallback((paths: DrawPath[]) => {
     if (!selectedFormId) return;
     const before = drawingsByFormRef.current[selectedFormId] ?? [];
     undoStackByFormRef.current[selectedFormId] = [...(undoStackByFormRef.current[selectedFormId] ?? []), before];
     redoStackByFormRef.current[selectedFormId] = [];
+    drawingsByFormRef.current[selectedFormId] = paths;
     syncUndoRedoButtons(selectedFormId);
-    savePathsDebounced(selectedFormId, paths);
-  }, [selectedFormId, savePathsDebounced, syncUndoRedoButtons]);
+  }, [selectedFormId, syncUndoRedoButtons]);
 
+  // undo/redo/clear — ref 업데이트 + 캔버스 전체 재렌더를 위해 setState 호출
   const handleUndo = () => {
     if (!selectedFormId) return;
     const stack = undoStackByFormRef.current[selectedFormId] ?? [];
@@ -256,8 +238,9 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     const current = drawingsByFormRef.current[selectedFormId] ?? [];
     undoStackByFormRef.current[selectedFormId] = stack.slice(0, -1);
     redoStackByFormRef.current[selectedFormId] = [...(redoStackByFormRef.current[selectedFormId] ?? []), current];
+    drawingsByFormRef.current[selectedFormId] = before;
     syncUndoRedoButtons(selectedFormId);
-    savePathsDebounced(selectedFormId, before);
+    startTransition(() => setDrawingsByForm({ ...drawingsByFormRef.current }));
   };
 
   const handleRedo = () => {
@@ -268,8 +251,9 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     const current = drawingsByFormRef.current[selectedFormId] ?? [];
     redoStackByFormRef.current[selectedFormId] = stack.slice(0, -1);
     undoStackByFormRef.current[selectedFormId] = [...(undoStackByFormRef.current[selectedFormId] ?? []), current];
+    drawingsByFormRef.current[selectedFormId] = next;
     syncUndoRedoButtons(selectedFormId);
-    savePathsDebounced(selectedFormId, next);
+    startTransition(() => setDrawingsByForm({ ...drawingsByFormRef.current }));
   };
 
   const handleClear = () => {
@@ -277,27 +261,34 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     const current = drawingsByFormRef.current[selectedFormId] ?? [];
     undoStackByFormRef.current[selectedFormId] = [...(undoStackByFormRef.current[selectedFormId] ?? []), current];
     redoStackByFormRef.current[selectedFormId] = [];
+    drawingsByFormRef.current[selectedFormId] = [];
     syncUndoRedoButtons(selectedFormId);
-    savePathsDebounced(selectedFormId, []);
+    startTransition(() => setDrawingsByForm({ ...drawingsByFormRef.current }));
     setClearPending(false);
   };
 
   const handleCopyTo = (targetFormId: string) => {
-    setDrawingsByForm(prev => ({ ...prev, [targetFormId]: [...currentPaths] }));
-    updateSongForm(targetFormId, { drawing_data: currentPaths } as never);
+    const src = drawingsByFormRef.current[selectedFormId ?? ''] ?? [];
+    drawingsByFormRef.current[targetFormId] = [...src];
+    setDrawingsByForm({ ...drawingsByFormRef.current });
+    updateSongForm(targetFormId, { drawing_data: src } as never);
     setShowCopyMenu(false);
     setCopyTargetForm(null);
   };
 
   const enterDrawingMode = () => {
-    snapshotRef.current = [...(currentPaths)];
+    snapshotRef.current = [...(drawingsByFormRef.current[selectedFormId ?? ''] ?? [])];
     setDrawingMode(true);
     setCancelPending(false);
   };
 
   const handleSaveAndExit = async () => {
     if (selectedFormId) {
-      await updateSongForm(selectedFormId, { drawing_data: currentPaths } as never);
+      setSaving(true);
+      const paths = drawingsByFormRef.current[selectedFormId] ?? [];
+      await updateSongForm(selectedFormId, { drawing_data: paths } as never);
+      setDrawingsByForm({ ...drawingsByFormRef.current }); // 탭 hasDrawing 반영
+      setSaving(false);
     }
     setDrawingMode(false);
     setCancelPending(false);
@@ -307,7 +298,8 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const handleCancelDrawing = () => {
     if (selectedFormId) {
       const original = snapshotRef.current;
-      setDrawingsByForm(prev => ({ ...prev, [selectedFormId]: original }));
+      drawingsByFormRef.current[selectedFormId] = original;
+      setDrawingsByForm({ ...drawingsByFormRef.current });
       updateSongForm(selectedFormId, { drawing_data: original } as never);
     }
     setDrawingMode(false);
@@ -406,14 +398,11 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
             {/* 드로잉 모드 — 저장/취소/복사 */}
             {drawingMode && !cancelPending && (
               <>
-                <button onClick={handleSaveAndExit}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-700 transition-colors"
+                <button onClick={handleSaveAndExit} disabled={saving}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-700 disabled:opacity-60 transition-colors"
                 >
-                  {saveStatus === 'saved'
-                    ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                    : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                  }
-                  저장
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                  {saving ? '저장 중...' : '저장'}
                 </button>
                 <button onClick={() => setCancelPending(true)}
                   className="px-2.5 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
