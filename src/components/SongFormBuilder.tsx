@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { SongSection } from '@/types';
 
 // ─── 섹션 타입 정의 ───────────────────────────────────────────────────────────
@@ -13,7 +13,6 @@ const SECTION_TYPES = [
   { type: 'O',  label: '아웃트로',   color: 'bg-neutral-100 text-neutral-500 border-neutral-200' },
 ] as const;
 
-// ─── 코드 정의 ────────────────────────────────────────────────────────────────
 const ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const QUALITIES = [
   { value: '',     label: 'M' },
@@ -29,7 +28,7 @@ const QUALITIES = [
 
 // ─── 헬퍼 ─────────────────────────────────────────────────────────────────────
 
-/** customLabel이 있으면 그대로 사용, 없으면 type별 순서 번호 계산 */
+/** customLabel 우선, 없으면 type별 자동 번호 */
 export function getSectionLabel(sections: SongSection[], targetId: string): string {
   const target = sections.find(s => s.id === targetId);
   if (!target) return '';
@@ -52,105 +51,114 @@ function uid() {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface SongFormBuilderProps {
-  sections: SongSection[];
-  onChange: (sections: SongSection[]) => void;
+  sections: SongSection[];  // 섹션 정의 (V1, V2 등 — 코드 포함)
+  flow: string[];           // 재생 순서 (섹션 id 배열, 반복 가능)
+  onChange: (sections: SongSection[], flow: string[]) => void;
 }
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────────────────────
-export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onChange }) => {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow, onChange }) => {
+  const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
   const [pendingRoot, setPendingRoot] = useState<string | null>(null);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const customInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedSection = sections.find(s => s.id === selectedId) ?? null;
+  const selectedDef = sections.find(s => s.id === selectedDefId) ?? null;
 
   useEffect(() => {
     if (showCustomInput) customInputRef.current?.focus();
   }, [showCustomInput]);
 
-  // 섹션 추가
-  const addSection = useCallback((type: string, customLabel?: string) => {
-    const newSection: SongSection = { id: uid(), type, chords: [], ...(customLabel ? { customLabel } : {}) };
-    const next = [...sections, newSection];
-    onChange(next);
-    setSelectedId(newSection.id);
-  }, [sections, onChange]);
+  // 새 섹션 정의 생성 + flow에 추가
+  const addDefinition = (type: string, customLabel?: string) => {
+    const newSec: SongSection = { id: uid(), type, chords: [], ...(customLabel ? { customLabel } : {}) };
+    onChange([...sections, newSec], [...flow, newSec.id]);
+    setSelectedDefId(newSec.id);
+  };
 
-  // 커스텀 섹션 추가 확정
   const confirmCustomSection = () => {
     const label = customInput.trim();
     if (!label) return;
-    addSection('custom', label);
+    addDefinition('custom', label);
     setCustomInput('');
     setShowCustomInput(false);
   };
 
-  // 섹션 삭제
-  const removeSection = useCallback((id: string) => {
-    onChange(sections.filter(s => s.id !== id));
-    if (selectedId === id) setSelectedId(null);
-  }, [sections, onChange, selectedId]);
+  // 기존 정의를 flow에 추가 (반복)
+  const appendToFlow = (id: string) => {
+    onChange(sections, [...flow, id]);
+  };
 
-  // 선택 섹션 커스텀 레이블 수정
+  // flow에서 특정 위치 제거 (정의는 유지)
+  const removeFromFlow = (flowIndex: number) => {
+    onChange(sections, flow.filter((_, i) => i !== flowIndex));
+  };
+
+  // 정의 삭제 + flow에서도 제거
+  const removeDefinition = (id: string) => {
+    onChange(sections.filter(s => s.id !== id), flow.filter(fid => fid !== id));
+    if (selectedDefId === id) setSelectedDefId(null);
+  };
+
+  // 커스텀 레이블 수정
   const updateCustomLabel = (id: string, label: string) => {
-    onChange(sections.map(s =>
-      s.id === id ? { ...s, customLabel: label || undefined } : s
-    ));
+    onChange(
+      sections.map(s => s.id === id ? { ...s, customLabel: label || undefined } : s),
+      flow
+    );
   };
 
   // 코드 추가
   const handleRootClick = (root: string) => setPendingRoot(root);
 
   const handleQualityClick = (quality: string) => {
-    if (!pendingRoot || !selectedId) return;
+    if (!pendingRoot || !selectedDefId) return;
     const chord = pendingRoot + quality;
-    onChange(sections.map(s =>
-      s.id === selectedId ? { ...s, chords: [...s.chords, chord] } : s
-    ));
+    onChange(
+      sections.map(s => s.id === selectedDefId ? { ...s, chords: [...s.chords, chord] } : s),
+      flow
+    );
     setPendingRoot(null);
   };
 
-  // 코드 삭제
-  const removeChord = (sectionId: string, chordIndex: number) => {
-    onChange(sections.map(s =>
-      s.id === sectionId
-        ? { ...s, chords: s.chords.filter((_, i) => i !== chordIndex) }
-        : s
-    ));
+  const removeChord = (secId: string, chordIdx: number) => {
+    onChange(
+      sections.map(s => s.id === secId ? { ...s, chords: s.chords.filter((_, i) => i !== chordIdx) } : s),
+      flow
+    );
   };
 
   return (
     <div className="space-y-4">
 
-      {/* ── 섹션 흐름 ── */}
+      {/* ── 1. 곡 구조 흐름 ── */}
       <div>
-        <p className="text-xs font-medium text-neutral-500 mb-2">곡 구조</p>
+        <p className="text-xs font-medium text-neutral-500 mb-2">곡 구조 흐름</p>
         <div className="min-h-12 flex flex-wrap gap-2 p-3 bg-neutral-50 border border-neutral-200 rounded-xl">
-          {sections.length === 0 && (
-            <span className="text-xs text-neutral-400 self-center">아래 버튼으로 섹션을 추가하세요</span>
+          {flow.length === 0 && (
+            <span className="text-xs text-neutral-400 self-center">아래에서 섹션을 추가하세요</span>
           )}
-          {sections.map((s, i) => {
-            const meta = getSectionMeta(s.type);
-            const label = getSectionLabel(sections, s.id);
-            const isSelected = s.id === selectedId;
+          {flow.map((id, i) => {
+            const sec = sections.find(s => s.id === id);
+            if (!sec) return null;
+            const meta = getSectionMeta(sec.type);
+            const label = getSectionLabel(sections, id);
+            const isSelected = id === selectedDefId;
             return (
-              <React.Fragment key={s.id}>
+              <React.Fragment key={`${id}-${i}`}>
                 {i > 0 && <span className="text-neutral-300 text-sm select-none self-center">—</span>}
                 <div
                   className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all select-none
                     ${meta.color}
                     ${isSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
-                  onClick={() => { setSelectedId(isSelected ? null : s.id); setPendingRoot(null); }}
+                  onClick={() => { setSelectedDefId(isSelected ? null : id); setPendingRoot(null); }}
                 >
                   <span>{label}</span>
-                  {s.chords.length > 0 && (
-                    <span className="opacity-60 font-normal">({s.chords.length})</span>
-                  )}
+                  {sec.chords.length > 0 && <span className="opacity-60 font-normal">({sec.chords.length})</span>}
                   <button
-                    className="ml-0.5 opacity-50 hover:opacity-100"
-                    onClick={(e) => { e.stopPropagation(); removeSection(s.id); }}
+                    className="ml-0.5 opacity-40 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); removeFromFlow(i); }}
                   >×</button>
                 </div>
               </React.Fragment>
@@ -159,22 +167,53 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onCh
         </div>
       </div>
 
-      {/* ── 섹션 추가 버튼 ── */}
+      {/* ── 2. 정의된 섹션 (반복 추가) ── */}
+      {sections.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-neutral-500 mb-2">섹션 반복 추가</p>
+          <div className="flex flex-wrap gap-2">
+            {sections.map(sec => {
+              const meta = getSectionMeta(sec.type);
+              const label = getSectionLabel(sections, sec.id);
+              return (
+                <div key={sec.id} className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => appendToFlow(sec.id)}
+                    className={`px-3 py-1.5 rounded-l-xl border border-r-0 text-xs font-semibold transition-all hover:scale-105 ${meta.color}`}
+                  >
+                    + {label}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeDefinition(sec.id)}
+                    title="섹션 정의 삭제"
+                    className={`px-2 py-1.5 rounded-r-xl border text-xs opacity-40 hover:opacity-100 transition-all ${meta.color}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. 새 섹션 추가 ── */}
       <div>
-        <p className="text-xs font-medium text-neutral-500 mb-2">섹션 추가</p>
+        <p className="text-xs font-medium text-neutral-500 mb-2">새 섹션 추가</p>
         <div className="flex flex-wrap gap-2">
           {SECTION_TYPES.map(({ type, label, color }) => (
             <button
               key={type}
               type="button"
-              onClick={() => addSection(type)}
+              onClick={() => addDefinition(type)}
               className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all hover:scale-105 ${color}`}
             >
               + {label}
             </button>
           ))}
 
-          {/* 커스텀 버튼 */}
           {!showCustomInput ? (
             <button
               type="button"
@@ -211,41 +250,33 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onCh
         </div>
       </div>
 
-      {/* ── 선택된 섹션 편집 ── */}
-      {selectedSection && (
+      {/* ── 4. 선택된 섹션 코드 편집 ── */}
+      {selectedDef && (
         <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-primary-700">
-              {getSectionLabel(sections, selectedSection.id)} 편집
-            </p>
-          </div>
+          <p className="text-xs font-semibold text-primary-700">
+            {getSectionLabel(sections, selectedDef.id)} 편집
+          </p>
 
           {/* 레이블 커스텀 */}
           <div>
             <p className="text-xs text-neutral-500 mb-1">레이블 (선택)</p>
             <input
-              value={selectedSection.customLabel ?? ''}
-              onChange={e => updateCustomLabel(selectedSection.id, e.target.value)}
-              placeholder={`기본: ${getSectionLabel(sections.map(s => s.id === selectedSection.id ? { ...s, customLabel: undefined } : s), selectedSection.id)}`}
+              value={selectedDef.customLabel ?? ''}
+              onChange={e => updateCustomLabel(selectedDef.id, e.target.value)}
+              placeholder={`기본: ${getSectionLabel(sections.map(s => s.id === selectedDef.id ? { ...s, customLabel: undefined } : s), selectedDef.id)}`}
               className="w-full px-2.5 py-1.5 rounded-xl border border-primary-200 text-xs outline-none focus:border-primary-400 bg-white"
             />
           </div>
 
           {/* 현재 코드 목록 */}
           <div className="flex flex-wrap gap-1.5 min-h-8">
-            {selectedSection.chords.length === 0 && (
+            {selectedDef.chords.length === 0 && (
               <span className="text-xs text-neutral-400">코드를 추가하세요</span>
             )}
-            {selectedSection.chords.map((chord, i) => (
-              <span
-                key={i}
-                className="flex items-center gap-1 px-2.5 py-1 bg-white border border-primary-200 rounded-lg text-xs font-medium text-primary-700"
-              >
+            {selectedDef.chords.map((chord, i) => (
+              <span key={i} className="flex items-center gap-1 px-2.5 py-1 bg-white border border-primary-200 rounded-lg text-xs font-medium text-primary-700">
                 {chord}
-                <button
-                  className="opacity-40 hover:opacity-100 text-error-500"
-                  onClick={() => removeChord(selectedSection.id, i)}
-                >×</button>
+                <button className="opacity-40 hover:opacity-100 text-error-500" onClick={() => removeChord(selectedDef.id, i)}>×</button>
               </span>
             ))}
           </div>
@@ -274,26 +305,22 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onCh
 
           {/* 퀄리티 선택 */}
           {pendingRoot && (
-            <div>
-              <div className="flex flex-wrap gap-1.5">
-                {QUALITIES.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => handleQualityClick(value)}
-                    className="px-3 h-9 rounded-xl text-xs font-medium border bg-white text-neutral-700 border-neutral-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
-                  >
-                    {pendingRoot}{label}
-                  </button>
-                ))}
+            <div className="flex flex-wrap gap-1.5">
+              {QUALITIES.map(({ value, label }) => (
                 <button
+                  key={value}
                   type="button"
-                  onClick={() => setPendingRoot(null)}
-                  className="px-3 h-9 rounded-xl text-xs text-neutral-400 border border-neutral-200 hover:bg-neutral-100 transition-all"
+                  onClick={() => handleQualityClick(value)}
+                  className="px-3 h-9 rounded-xl text-xs font-medium border bg-white text-neutral-700 border-neutral-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
                 >
-                  취소
+                  {pendingRoot}{label}
                 </button>
-              </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setPendingRoot(null)}
+                className="px-3 h-9 rounded-xl text-xs text-neutral-400 border border-neutral-200 hover:bg-neutral-100 transition-all"
+              >취소</button>
             </div>
           )}
         </div>

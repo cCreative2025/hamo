@@ -6,9 +6,9 @@ import { formatDate } from '@/lib/utils';
 import { Button } from './Button';
 import { useSheetStore } from '@/stores/sheetStore';
 import { SheetViewerModal } from './SheetViewerModal';
-import { SongFormBuilder } from './SongFormBuilder';
+import { SongFormBuilder, getSectionLabel } from './SongFormBuilder';
 
-// ─── 섹션 레이블 헬퍼 ────────────────────────────────────────────────────────
+// ─── 섹션 색상 헬퍼 ──────────────────────────────────────────────────────────
 const SECTION_COLORS: Record<string, string> = {
   I:  'bg-neutral-100 text-neutral-600',
   V:  'bg-primary-100 text-primary-700',
@@ -18,16 +18,8 @@ const SECTION_COLORS: Record<string, string> = {
   O:  'bg-neutral-100 text-neutral-500',
 };
 
-function getSectionLabel(sections: SongSection[], id: string): string {
-  const target = sections.find(s => s.id === id);
-  if (!target) return '';
-  if (target.customLabel) return target.customLabel;
-  const sameType = sections.filter(s => s.type === target.type);
-  return sameType.length === 1 ? target.type : `${target.type}${sameType.findIndex(s => s.id === id) + 1}`;
-}
-
 function getSectionColor(type: string) {
-  return SECTION_COLORS[type] ?? 'bg-neutral-100 text-neutral-600';
+  return SECTION_COLORS[type] ?? 'bg-violet-100 text-violet-700';
 }
 
 // ─── SheetCard ────────────────────────────────────────────────────────────────
@@ -39,14 +31,16 @@ interface SheetCardProps {
 
 export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete }) => {
   const [addingForm, setAddingForm] = useState(false);
-  const [newForm, setNewForm] = useState({ name: '', key: '', sections: [] as SongSection[], memo: '' });
+  const [newForm, setNewForm] = useState({
+    name: '', key: '', sections: [] as SongSection[], flow: [] as string[], memo: '',
+  });
   const [viewing, setViewing] = useState(false);
   const { addSongForm, deleteSongForm, updateSongForm } = useSheetStore();
 
   const handleAddForm = async () => {
     if (!newForm.name.trim()) return;
     await addSongForm(sheet.id, newForm);
-    setNewForm({ name: '', key: '', sections: [], memo: '' });
+    setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
     setAddingForm(false);
   };
 
@@ -97,7 +91,8 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete 
             </div>
             <SongFormBuilder
               sections={newForm.sections}
-              onChange={(sections) => setNewForm((p) => ({ ...p, sections }))}
+              flow={newForm.flow}
+              onChange={(sections, flow) => setNewForm((p) => ({ ...p, sections, flow }))}
             />
             <div className="flex gap-2">
               <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>
@@ -144,11 +139,21 @@ const SongFormItem: React.FC<{
   onUpdate: (id: string, updates: Partial<SongForm>) => Promise<void>;
 }> = ({ form, onDelete, onUpdate }) => {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ name: form.name, key: form.key ?? '', sections: (form.sections ?? []) as SongSection[] });
+  const [draft, setDraft] = useState({
+    name: form.name,
+    key: form.key ?? '',
+    sections: (form.sections ?? []) as SongSection[],
+    flow: (form.flow ?? []) as string[],
+  });
+
   const sections = form.sections ?? [];
+  // flow가 있으면 flow 순서로, 없으면 sections 순서로 표시 (하위호환)
+  const displayFlow: SongSection[] = form.flow?.length
+    ? form.flow.map(id => sections.find(s => s.id === id)).filter(Boolean) as SongSection[]
+    : sections;
 
   const handleSave = async () => {
-    await onUpdate(form.id, { name: draft.name, key: draft.key, sections: draft.sections });
+    await onUpdate(form.id, { name: draft.name, key: draft.key, sections: draft.sections, flow: draft.flow });
     setEditing(false);
   };
 
@@ -173,7 +178,8 @@ const SongFormItem: React.FC<{
         </div>
         <SongFormBuilder
           sections={draft.sections}
-          onChange={(sections) => setDraft(p => ({ ...p, sections }))}
+          flow={draft.flow}
+          onChange={(sections, flow) => setDraft(p => ({ ...p, sections, flow }))}
         />
         <div className="flex gap-2">
           <Button size="sm" variant="primary" onClick={handleSave}>저장</Button>
@@ -185,7 +191,7 @@ const SongFormItem: React.FC<{
 
   return (
     <div className="border border-neutral-200 rounded-xl overflow-hidden">
-      {/* 헤더 + 섹션 흐름 (항상 보임) */}
+      {/* 헤더 + 흐름 칩 */}
       <div className="px-3 py-2.5 bg-neutral-50">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-semibold text-neutral-700">
@@ -197,11 +203,11 @@ const SongFormItem: React.FC<{
           </div>
         </div>
 
-        {/* 섹션 흐름 칩 */}
-        {sections.length > 0 ? (
+        {/* 흐름 칩 (반복 포함) */}
+        {displayFlow.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1">
-            {sections.map((s, i) => (
-              <React.Fragment key={s.id}>
+            {displayFlow.map((s, i) => (
+              <React.Fragment key={`${s.id}-${i}`}>
                 {i > 0 && <span className="text-neutral-300 text-xs select-none">—</span>}
                 <span className={`px-1.5 py-0.5 rounded-md text-xs font-semibold ${getSectionColor(s.type)}`}>
                   {getSectionLabel(sections, s.id)}
@@ -214,7 +220,7 @@ const SongFormItem: React.FC<{
         )}
       </div>
 
-      {/* 코드 진행 (섹션별, 있을 때만) */}
+      {/* 코드 진행 (정의된 섹션별) */}
       {sections.some(s => s.chords.length > 0) && (
         <div className="px-3 py-2 space-y-1.5 border-t border-neutral-100">
           {sections.filter(s => s.chords.length > 0).map((s) => (

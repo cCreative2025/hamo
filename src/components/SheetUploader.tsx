@@ -16,6 +16,7 @@ export interface SongFormData {
   name: string;
   key?: string;
   sections?: SongSection[];
+  flow?: string[];
   memo?: string;
 }
 
@@ -40,7 +41,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
     key: '',
     tempo: undefined,
     time_signature: '',
-    songForm: { name: '기본', key: '', sections: [], memo: '' },
+    songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' },
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,7 +80,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
       // 폼 초기화
       setFile(null);
       setThumbnail(null);
-      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', songForm: { name: '기본', key: '', sections: [], memo: '' } });
+      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' } });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -276,7 +277,8 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
         </div>
         <SongFormBuilder
           sections={formData.songForm?.sections ?? []}
-          onChange={(sections) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, sections } }))}
+          flow={formData.songForm?.flow ?? []}
+          onChange={(sections, flow) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, sections, flow } }))}
         />
         <div className="mt-4">
           <label className="block text-xs font-medium text-neutral-600 mb-1">메모</label>

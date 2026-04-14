@@ -50,7 +50,8 @@ export interface SongForm {
   name: string;
   key?: string;
   chord_progression?: string; // 레거시 텍스트 (하위호환)
-  sections?: SongSection[];   // 신규 구조화 데이터
+  sections?: SongSection[];   // 섹션 정의 (V1, V2 등)
+  flow?: string[];            // 재생 순서 (섹션 ID 배열, 반복 포함)
   memo?: string;
   created_by: string;
   created_at: string;
