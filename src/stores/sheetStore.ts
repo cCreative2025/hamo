@@ -33,13 +33,15 @@ interface SheetStore {
       key?: string;
     }
   ) => Promise<Sheet>;
+  updateSheet: (sheetId: string, updates: Partial<Pick<Sheet, 'title' | 'artist' | 'genre' | 'key' | 'tempo' | 'time_signature'>>) => Promise<void>;
   deleteSheet: (sheetId: string) => Promise<void>;
+  replaceSheetFile: (sheetId: string, file: File) => Promise<SheetVersion>;
   uploadNewVersion: (sheetId: string, file: File) => Promise<SheetVersion>;
   applyFilters: () => void;
 
   // Song form methods
   addSongForm: (sheetId: string, form: { name: string; key?: string; sections?: SongForm['sections']; flow?: SongForm['flow']; memo?: string }) => Promise<SongForm>;
-  updateSongForm: (formId: string, updates: Partial<Pick<SongForm, 'name' | 'key' | 'chord_progression' | 'sections' | 'flow' | 'memo'>>) => Promise<void>;
+  updateSongForm: (formId: string, updates: Partial<Pick<SongForm, 'name' | 'key' | 'tempo' | 'chord_progression' | 'sections' | 'flow' | 'memo'>>) => Promise<void>;
   deleteSongForm: (formId: string) => Promise<void>;
 }
 
@@ -205,6 +207,15 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
     }
   },
 
+  updateSheet: async (sheetId, updates) => {
+    const { error } = await supabase.from('sheets').update(updates).eq('id', sheetId);
+    if (error) throw error;
+    set((state) => ({
+      sheets: state.sheets.map((s) => s.id === sheetId ? { ...s, ...updates } : s),
+    }));
+    get().applyFilters();
+  },
+
   deleteSheet: async (sheetId: string) => {
     set({ isLoading: true, error: null });
     try {
@@ -224,6 +235,44 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
         isLoading: false,
       });
     }
+  },
+
+  replaceSheetFile: async (sheetId, file) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    const sheet = get().sheets.find((s) => s.id === sheetId);
+    if (!sheet) throw new Error('Sheet not found');
+
+    const filename = `${Date.now()}-${file.name}`;
+    const storagePath = `${sheet.team_id ?? user.id}/${filename}`;
+    const { error: uploadError } = await supabase.storage.from('sheets').upload(storagePath, file);
+    if (uploadError) throw uploadError;
+
+    const fileType = file.type.includes('pdf') ? 'pdf' : 'image';
+    const { data, error } = await supabase
+      .from('sheet_versions')
+      .insert({
+        sheet_id: sheetId,
+        file_path: storagePath,
+        file_type: fileType,
+        version_number: (sheet.sheet_versions?.length ?? 0) + 1,
+        created_by: user.id,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+
+    await supabase.from('sheets').update({ active_version_id: data.id }).eq('id', sheetId);
+
+    set((state) => ({
+      sheets: state.sheets.map((s) =>
+        s.id === sheetId
+          ? { ...s, sheet_versions: [data, ...(s.sheet_versions ?? [])], active_version_id: data.id }
+          : s
+      ),
+    }));
+    get().applyFilters();
+    return data;
   },
 
   uploadNewVersion: async (sheetId: string, file: File) => {
