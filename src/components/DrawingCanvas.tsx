@@ -16,6 +16,7 @@ interface DrawingCanvasProps {
   activeTool: 'pen' | 'eraser' | null;
   color: string;
   strokeWidth: number;
+  onPencilDoubleTap?: () => void; // Apple Pencil 2 더블탭
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -41,7 +42,7 @@ function renderPaths(ctx: CanvasRenderingContext2D, paths: DrawPath[], w: number
 }
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
-  paths, onPathsChange, activeTool, color, strokeWidth,
+  paths, onPathsChange, activeTool, color, strokeWidth, onPencilDoubleTap,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -95,6 +96,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   const startDraw = useCallback((e: React.PointerEvent) => {
     if (!activeTool || e.pointerType === 'touch') return;
+    // Apple Pencil 2 더블탭: button === 5 (배럴 버튼)
+    if (e.pointerType === 'pen' && e.button === 5) {
+      onPencilDoubleTap?.();
+      return;
+    }
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     drawingRef.current = true;
@@ -102,7 +108,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (!pt) return;
     currentPathRef.current = { id: uid(), tool: activeTool, color, width: strokeWidth, points: [pt] };
     prevPointRef.current = pt;
-  }, [activeTool, color, strokeWidth, getPoint]);
+  }, [activeTool, color, strokeWidth, getPoint, onPencilDoubleTap]);
 
   const draw = useCallback((e: React.PointerEvent) => {
     if (!drawingRef.current || !currentPathRef.current || !activeTool || e.pointerType === 'touch') return;
