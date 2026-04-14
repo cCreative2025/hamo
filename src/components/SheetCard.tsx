@@ -198,11 +198,14 @@ const SongFormItem: React.FC<{
 
         {/* 섹션 흐름 칩 */}
         {sections.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {sections.map((s) => (
-              <span key={s.id} className={`px-1.5 py-0.5 rounded-md text-xs font-semibold ${getSectionColor(s.type)}`}>
-                {getSectionLabel(sections, s.id)}
-              </span>
+          <div className="flex flex-wrap items-center gap-1">
+            {sections.map((s, i) => (
+              <React.Fragment key={s.id}>
+                {i > 0 && <span className="text-neutral-300 text-xs select-none">—</span>}
+                <span className={`px-1.5 py-0.5 rounded-md text-xs font-semibold ${getSectionColor(s.type)}`}>
+                  {getSectionLabel(sections, s.id)}
+                </span>
+              </React.Fragment>
             ))}
           </div>
         ) : (

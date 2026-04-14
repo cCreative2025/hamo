@@ -109,27 +109,29 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, onCh
           {sections.length === 0 && (
             <span className="text-xs text-neutral-400 self-center">아래 버튼으로 섹션을 추가하세요</span>
           )}
-          {sections.map((s) => {
+          {sections.map((s, i) => {
             const meta = getSectionMeta(s.type);
             const label = getSectionLabel(sections, s.id);
             const isSelected = s.id === selectedId;
             return (
-              <div
-                key={s.id}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all select-none
-                  ${meta.color}
-                  ${isSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
-                onClick={() => { setSelectedId(isSelected ? null : s.id); setPendingRoot(null); }}
-              >
-                <span>{label}</span>
-                {s.chords.length > 0 && (
-                  <span className="opacity-60 font-normal">({s.chords.length})</span>
-                )}
-                <button
-                  className="ml-0.5 opacity-50 hover:opacity-100"
-                  onClick={(e) => { e.stopPropagation(); removeSection(s.id); }}
-                >×</button>
-              </div>
+              <React.Fragment key={s.id}>
+                {i > 0 && <span className="text-neutral-300 text-sm select-none self-center">—</span>}
+                <div
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all select-none
+                    ${meta.color}
+                    ${isSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
+                  onClick={() => { setSelectedId(isSelected ? null : s.id); setPendingRoot(null); }}
+                >
+                  <span>{label}</span>
+                  {s.chords.length > 0 && (
+                    <span className="opacity-60 font-normal">({s.chords.length})</span>
+                  )}
+                  <button
+                    className="ml-0.5 opacity-50 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); removeSection(s.id); }}
+                  >×</button>
+                </div>
+              </React.Fragment>
             );
           })}
         </div>
