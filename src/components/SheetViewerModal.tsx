@@ -418,30 +418,40 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         {/* ── Sheet viewer + canvas overlay ── */}
         <div
           ref={contentWrapRef}
-          className="flex-1 relative overflow-hidden"
+          className="flex-1 flex flex-col relative overflow-hidden"
+          style={{ userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
           onTouchStart={drawingMode ? handlePinchStart : undefined}
           onTouchMove={drawingMode ? handlePinchMove : undefined}
           onTouchEnd={drawingMode ? handlePinchEnd : undefined}
         >
           {/* 줌/이동 적용 inner wrapper */}
           <div
-            className="absolute inset-0"
+            className="flex-1 relative"
             style={drawingMode && (zoomScale !== 1 || zoomOffset.x !== 0 || zoomOffset.y !== 0) ? {
               transform: `translate(${zoomOffset.x}px, ${zoomOffset.y}px) scale(${zoomScale})`,
               transformOrigin: '0 0',
             } : undefined}
           >
             {loading ? (
-              <div className="flex items-center justify-center h-full">
+              <div className="absolute inset-0 flex items-center justify-center">
                 <LoadingSpinner text="파일 불러오는 중..." />
               </div>
             ) : error ? (
-              <div className="flex items-center justify-center h-full text-error-500 text-sm">{error}</div>
+              <div className="absolute inset-0 flex items-center justify-center text-error-500 text-sm">{error}</div>
             ) : fileType === 'pdf' && fileUrl ? (
-              <PDFViewer fileUrl={fileUrl} />
+              <div className="absolute inset-0">
+                <PDFViewer fileUrl={fileUrl} />
+              </div>
             ) : fileUrl ? (
-              <div className="flex items-center justify-center h-full p-4 overflow-auto bg-neutral-50">
-                <img src={fileUrl} alt={sheet.title} className="max-w-full max-h-full object-contain rounded-xl shadow-soft" />
+              <div className="absolute inset-0 flex items-center justify-center p-4 overflow-auto bg-neutral-50">
+                <img
+                  src={fileUrl}
+                  alt={sheet.title}
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className="max-w-full max-h-full object-contain rounded-xl shadow-soft"
+                  style={{ WebkitTouchCallout: 'none' } as React.CSSProperties}
+                />
               </div>
             ) : null}
 
