@@ -147,12 +147,12 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
                     setSelectedDefId(isFlowSelected ? null : item.id);
                   }}
                 >
-                  <span>{label}{repeat > 1 ? ` ×${repeat}` : ''}</span>
                   {sec.sectionKey && (
                     <span className="px-1 py-0.5 rounded-full bg-white/60 text-[10px] font-bold leading-none">
                       {sec.sectionKey}
                     </span>
                   )}
+                  <span>{label}{repeat > 1 ? ` ×${repeat}` : ''}</span>
                   <button
                     className="ml-0.5 opacity-40 hover:opacity-100"
                     onClick={(e) => { e.stopPropagation(); removeFromFlow(i); }}
