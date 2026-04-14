@@ -8,6 +8,7 @@ import { LoadingSpinner } from './LoadingSpinner';
 import { DrawingCanvas, DrawPath } from './DrawingCanvas';
 import { getSectionLabel } from './SongFormBuilder';
 import { useSheetStore } from '@/stores/sheetStore';
+import { SongFormInput, SongFormInputValue } from './SongFormInput';
 
 // ─── 색상 ────────────────────────────────────────────────────────────────────
 const SECTION_COLORS: Record<string, string> = {
@@ -73,11 +74,10 @@ const SongFormBar: React.FC<{ form: SongForm; onEnterDrawing?: () => void }> = (
 interface SheetViewerModalProps {
   sheet: Sheet;
   onClose: () => void;
-  onEdit?: () => void;
 }
 
-export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClose, onEdit }) => {
-  const { updateSongForm } = useSheetStore();
+export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClose }) => {
+  const { updateSongForm, addSongForm } = useSheetStore();
 
   // Sheet file
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -321,6 +321,20 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  // Song form add (inline panel)
+  const [addingForm, setAddingForm] = useState(false);
+  const [newForm, setNewForm] = useState<SongFormInputValue>({ name: '', key: '', sections: [], flow: [], memo: '' });
+  const [addingSaving, setAddingSaving] = useState(false);
+
+  const handleAddFormSave = async () => {
+    if (!newForm.name.trim()) return;
+    setAddingSaving(true);
+    await addSongForm(sheet.id, newForm);
+    setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
+    setAddingForm(false);
+    setAddingSaving(false);
+  };
+
   const otherForms = sheet.song_forms?.filter(f => f.id !== selectedFormId) ?? [];
 
   return (
@@ -523,14 +537,12 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
             : (
               <div className="px-5 py-3 bg-neutral-900 text-white flex-shrink-0 flex items-center gap-2">
                 <span className="text-xs text-neutral-500">송폼이 없습니다.</span>
-                {onEdit && (
-                  <button
-                    onClick={onEdit}
-                    className="px-2 py-0.5 rounded-md bg-neutral-700 text-neutral-300 text-xs font-medium hover:bg-neutral-600 hover:text-white transition-colors"
-                  >
-                    추가
-                  </button>
-                )}
+                <button
+                  onClick={() => setAddingForm(true)}
+                  className="px-2 py-0.5 rounded-md bg-neutral-700 text-neutral-300 text-xs font-medium hover:bg-neutral-600 hover:text-white transition-colors"
+                >
+                  추가
+                </button>
               </div>
             )
         )}
@@ -588,11 +600,39 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
           </div>
         </div>
 
+        {/* ── 송폼 추가 패널 (인라인 슬라이드업) ── */}
+        {!drawingMode && addingForm && (
+          <div className="border-t border-neutral-200 bg-white flex-shrink-0 flex flex-col max-h-[60vh]">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
+              <span className="text-sm font-semibold text-neutral-800">송폼 추가</span>
+              <button onClick={() => setAddingForm(false)} className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto px-5 pb-2 flex-1">
+              <SongFormInput value={newForm} onChange={setNewForm} showMemo autoFocus />
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-neutral-100 flex-shrink-0">
+              <button onClick={() => setAddingForm(false)}
+                className="px-3 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
+              >취소</button>
+              <button onClick={handleAddFormSave} disabled={!newForm.name.trim() || addingSaving}
+                className="px-3 py-1.5 rounded-xl bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-700 disabled:opacity-40 transition-colors"
+              >{addingSaving ? '저장 중...' : '저장'}</button>
+            </div>
+          </div>
+        )}
+
         {/* ── 송폼 선택 탭 ── */}
-        {!drawingMode && sheet.song_forms && sheet.song_forms.length > 0 && (
+        {!drawingMode && !addingForm && sheet.song_forms && sheet.song_forms.length > 0 && (
           <div className="border-t border-neutral-200 px-5 py-3 bg-neutral-50 flex-shrink-0">
             <p className="text-xs font-medium text-neutral-400 mb-2">송폼</p>
             <div className="flex gap-2 overflow-x-auto pb-1">
+              <button onClick={() => setAddingForm(true)}
+                className="flex-shrink-0 px-3 py-2 rounded-xl border border-dashed border-neutral-300 text-xs font-medium text-neutral-400 hover:border-neutral-500 hover:text-neutral-600 transition-colors"
+              >+ 추가</button>
               {sheet.song_forms.map((form) => {
                 const isSelected = form.id === selectedFormId;
                 const hasDrawing = (drawingsByForm[form.id]?.length ?? 0) > 0;
