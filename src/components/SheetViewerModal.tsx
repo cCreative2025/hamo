@@ -20,15 +20,28 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   useEffect(() => {
     const version = sheet.sheet_versions?.[0];
     if (!version?.file_path) {
-      setError('파일 정보가 없습니다.');
+      setError('파일 정보가 없습니다. (sheet_versions 없음)');
       setLoading(false);
       return;
     }
 
-    const { data } = supabase.storage.from('sheets').getPublicUrl(version.file_path);
-    setFileUrl(data.publicUrl);
-    setFileType(version.file_type === 'pdf' ? 'pdf' : 'image');
-    setLoading(false);
+    const load = async () => {
+      const { data, error } = await supabase.storage
+        .from('sheets')
+        .createSignedUrl(version.file_path, 3600);
+
+      if (error || !data?.signedUrl) {
+        setError(`파일 URL 생성 실패: ${error?.message ?? '알 수 없는 오류'}`);
+        setLoading(false);
+        return;
+      }
+
+      setFileUrl(data.signedUrl);
+      setFileType(version.file_type === 'pdf' ? 'pdf' : 'image');
+      setLoading(false);
+    };
+
+    load();
   }, [sheet]);
 
   // ESC 닫기
