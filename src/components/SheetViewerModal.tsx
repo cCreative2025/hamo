@@ -602,7 +602,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
         {/* ── 송폼 추가 패널 (인라인 슬라이드업) ── */}
         {!drawingMode && addingForm && (
-          <div className="border-t border-neutral-200 bg-white flex-shrink-0 flex flex-col max-h-[60vh]" style={{ animation: 'slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1)' }}>
+          <div className="border-t border-neutral-200 bg-white flex-shrink-0 flex flex-col max-h-[60vh]" style={{ animation: 'slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1)' }}>
             <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
               <span className="text-sm font-semibold text-neutral-800">송폼 추가</span>
               <button onClick={() => setAddingForm(false)} className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors">
