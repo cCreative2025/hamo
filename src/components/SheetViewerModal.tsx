@@ -323,19 +323,12 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
   // Song form add (inline panel)
   const [addingForm, setAddingForm] = useState(false);
-  const [closingForm, setClosingForm] = useState(false);
   const [newForm, setNewForm] = useState<SongFormInputValue>({ name: '', key: '', sections: [], flow: [], memo: '' });
   const [addingSaving, setAddingSaving] = useState(false);
 
   const closeAddingForm = () => {
-    setClosingForm(true);
-  };
-  const handleAddFormAnimEnd = () => {
-    if (closingForm) {
-      setAddingForm(false);
-      setClosingForm(false);
-      setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
-    }
+    setAddingForm(false);
+    setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
   };
 
   const handleAddFormSave = async () => {
@@ -343,7 +336,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     setAddingSaving(true);
     await addSongForm(sheet.id, newForm);
     setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
-    setClosingForm(true);
+    setAddingForm(false);
     setAddingSaving(false);
   };
 
@@ -614,10 +607,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
         {/* ── 송폼 추가 패널 (인라인 슬라이드업) ── */}
         {!drawingMode && addingForm && (
-          <div className="border-t border-neutral-200 bg-white flex-shrink-0 flex flex-col max-h-[60vh]"
-            style={{ animation: `${closingForm ? 'slide-down' : 'slide-up'} 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards` }}
-            onAnimationEnd={handleAddFormAnimEnd}
-          >
+          <div className="border-t border-neutral-200 bg-white flex-shrink-0 flex flex-col max-h-[60vh]">
             <div className="flex items-center justify-between px-5 pt-4 pb-2 flex-shrink-0">
               <span className="text-sm font-semibold text-neutral-800">송폼 추가</span>
               <button onClick={closeAddingForm} className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors">
