@@ -108,13 +108,21 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     };
   }, []);
 
+  // 더블탭 감지용 (웹에서 Pencil 하드웨어 더블탭 API 없음 → 빠른 두 번 탭으로 대체)
+  const lastTapRef = useRef<number>(0);
+
   const startDraw = useCallback((e: React.PointerEvent) => {
     if (!activeTool || e.pointerType === 'touch') return;
-    // Apple Pencil 2 더블탭: button === 5 (배럴 버튼)
-    if (e.pointerType === 'pen' && e.button === 5) {
+
+    // 더블탭 감지: 300ms 내 두 번 탭
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      lastTapRef.current = 0;
       onPencilDoubleTap?.();
       return;
     }
+    lastTapRef.current = now;
+
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     drawingRef.current = true;
