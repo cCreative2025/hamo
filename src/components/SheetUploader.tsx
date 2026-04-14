@@ -5,7 +5,7 @@ import { Button } from './Button';
 import { LoadingSpinner } from './LoadingSpinner';
 import { SongFormBuilder } from './SongFormBuilder';
 import { formatFileSize } from '@/lib/utils';
-import { SongSection } from '@/types';
+import { SongSection, FlowItem } from '@/types';
 
 interface SheetUploaderProps {
   onUpload: (file: File, sheetData: SheetUploadData) => Promise<void>;
@@ -16,7 +16,7 @@ export interface SongFormData {
   name: string;
   key?: string;
   sections?: SongSection[];
-  flow?: string[];
+  flow?: FlowItem[];
   memo?: string;
 }
 

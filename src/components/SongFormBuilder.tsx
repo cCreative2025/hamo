@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { SongSection } from '@/types';
+import { SongSection, FlowItem, normalizeFlow } from '@/types';
 
 // ─── 섹션 타입 정의 ───────────────────────────────────────────────────────────
 const SECTION_TYPES = [
@@ -51,20 +51,22 @@ function uid() {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface SongFormBuilderProps {
-  sections: SongSection[];  // 섹션 정의 (V1, V2 등 — 코드 포함)
-  flow: string[];           // 재생 순서 (섹션 id 배열, 반복 가능)
-  onChange: (sections: SongSection[], flow: string[]) => void;
+  sections: SongSection[];
+  flow: FlowItem[];
+  onChange: (sections: SongSection[], flow: FlowItem[]) => void;
 }
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────────────────────
 export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow, onChange }) => {
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
+  const [selectedFlowIdx, setSelectedFlowIdx] = useState<number | null>(null);
   const [pendingRoot, setPendingRoot] = useState<string | null>(null);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const customInputRef = useRef<HTMLInputElement>(null);
 
   const selectedDef = sections.find(s => s.id === selectedDefId) ?? null;
+  const selectedFlowItem = selectedFlowIdx !== null ? flow[selectedFlowIdx] : null;
 
   useEffect(() => {
     if (showCustomInput) customInputRef.current?.focus();
@@ -73,8 +75,9 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
   // 새 섹션 정의 생성 + flow에 추가
   const addDefinition = (type: string, customLabel?: string) => {
     const newSec: SongSection = { id: uid(), type, chords: [], ...(customLabel ? { customLabel } : {}) };
-    onChange([...sections, newSec], [...flow, newSec.id]);
+    onChange([...sections, newSec], [...flow, { id: newSec.id }]);
     setSelectedDefId(newSec.id);
+    setSelectedFlowIdx(null);
   };
 
   const confirmCustomSection = () => {
@@ -87,18 +90,29 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
 
   // 기존 정의를 flow에 추가 (반복)
   const appendToFlow = (id: string) => {
-    onChange(sections, [...flow, id]);
+    onChange(sections, [...flow, { id }]);
   };
 
   // flow에서 특정 위치 제거 (정의는 유지)
   const removeFromFlow = (flowIndex: number) => {
     onChange(sections, flow.filter((_, i) => i !== flowIndex));
+    if (selectedFlowIdx === flowIndex) setSelectedFlowIdx(null);
   };
 
   // 정의 삭제 + flow에서도 제거
   const removeDefinition = (id: string) => {
-    onChange(sections.filter(s => s.id !== id), flow.filter(fid => fid !== id));
+    onChange(sections.filter(s => s.id !== id), flow.filter(item => item.id !== id));
     if (selectedDefId === id) setSelectedDefId(null);
+    setSelectedFlowIdx(null);
+  };
+
+  // flow 아이템 반복 횟수 변경
+  const setFlowRepeat = (flowIndex: number, delta: number) => {
+    const current = flow[flowIndex]?.repeat ?? 1;
+    const next = Math.max(1, current + delta);
+    onChange(sections, flow.map((item, i) =>
+      i === flowIndex ? { ...item, repeat: next > 1 ? next : undefined } : item
+    ));
   };
 
   // 커스텀 레이블 수정
@@ -139,22 +153,28 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
           {flow.length === 0 && (
             <span className="text-xs text-neutral-400 self-center">아래에서 섹션을 추가하세요</span>
           )}
-          {flow.map((id, i) => {
-            const sec = sections.find(s => s.id === id);
+          {flow.map((item, i) => {
+            const sec = sections.find(s => s.id === item.id);
             if (!sec) return null;
             const meta = getSectionMeta(sec.type);
-            const label = getSectionLabel(sections, id);
-            const isSelected = id === selectedDefId;
+            const label = getSectionLabel(sections, item.id);
+            const repeat = item.repeat ?? 1;
+            const isFlowSelected = i === selectedFlowIdx;
+            const isDefSelected = item.id === selectedDefId;
             return (
-              <React.Fragment key={`${id}-${i}`}>
+              <React.Fragment key={`${item.id}-${i}`}>
                 {i > 0 && <span className="text-neutral-300 text-sm select-none self-center">—</span>}
                 <div
                   className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all select-none
                     ${meta.color}
-                    ${isSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
-                  onClick={() => { setSelectedDefId(isSelected ? null : id); setPendingRoot(null); }}
+                    ${isFlowSelected || isDefSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
+                  onClick={() => {
+                    setSelectedFlowIdx(isFlowSelected ? null : i);
+                    setSelectedDefId(isDefSelected ? null : item.id);
+                    setPendingRoot(null);
+                  }}
                 >
-                  <span>{label}</span>
+                  <span>{label}{repeat > 1 ? ` ×${repeat}` : ''}</span>
                   {sec.chords.length > 0 && <span className="opacity-60 font-normal">({sec.chords.length})</span>}
                   <button
                     className="ml-0.5 opacity-40 hover:opacity-100"
@@ -165,6 +185,30 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
             );
           })}
         </div>
+
+        {/* 선택된 flow 아이템의 반복 횟수 조절 */}
+        {selectedFlowItem && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-xs text-neutral-500">반복</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setFlowRepeat(selectedFlowIdx!, -1)}
+                disabled={(selectedFlowItem.repeat ?? 1) <= 1}
+                className="w-6 h-6 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 text-xs hover:bg-neutral-100 disabled:opacity-30 transition-colors"
+              >－</button>
+              <span className="w-6 text-center text-xs font-semibold text-neutral-700">
+                {selectedFlowItem.repeat ?? 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFlowRepeat(selectedFlowIdx!, +1)}
+                className="w-6 h-6 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 text-xs hover:bg-neutral-100 transition-colors"
+              >＋</button>
+            </div>
+            <span className="text-xs text-neutral-400">회</span>
+          </div>
+        )}
       </div>
 
       {/* ── 2. 정의된 섹션 (반복 추가) ── */}

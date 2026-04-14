@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Sheet, SongForm, SongSection } from '@/types';
+import { Sheet, SongForm, SongSection, normalizeFlow } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { PDFViewer } from './PDFViewer';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -23,8 +23,11 @@ const STROKE_WIDTHS = [{ label: '얇게', value: 2 }, { label: '보통', value: 
 // ─── 송폼 흐름 바 ─────────────────────────────────────────────────────────────
 const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
   const sections = (form.sections ?? []) as SongSection[];
-  const flowIds = form.flow?.length ? form.flow : sections.map(s => s.id);
-  const displayFlow = flowIds.map(id => sections.find(s => s.id === id)).filter(Boolean) as SongSection[];
+  const normFlow = normalizeFlow(form.flow?.length ? form.flow : sections.map(s => s.id));
+  const displayFlow = normFlow.map(item => {
+    const section = sections.find(s => s.id === item.id);
+    return section ? { section, repeat: item.repeat ?? 1 } : null;
+  }).filter(Boolean) as { section: SongSection; repeat: number }[];
   const uniqueWithChords = sections.filter(s => s.chords.length > 0);
 
   return (
@@ -33,11 +36,11 @@ const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-neutral-500 font-medium">송폼</span>
           <span className="text-neutral-600 text-xs select-none">|</span>
-          {displayFlow.map((s, i) => (
+          {displayFlow.map(({ section: s, repeat }, i) => (
             <React.Fragment key={`${s.id}-${i}`}>
               {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
               <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${getSectionColor(s.type)}`}>
-                {getSectionLabel(sections, s.id)}
+                {getSectionLabel(sections, s.id)}{repeat > 1 ? ` ×${repeat}` : ''}
               </span>
             </React.Fragment>
           ))}

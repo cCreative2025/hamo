@@ -44,15 +44,25 @@ export interface SongSection {
   customLabel?: string; // 커스텀 표시 레이블 (있으면 type 기반 자동 번호 대신 사용)
 }
 
+export interface FlowItem {
+  id: string;       // section id
+  repeat?: number;  // 반복 횟수 (없거나 1 = 1회)
+}
+
+/** 구버전 string[] flow를 FlowItem[] 으로 정규화 */
+export function normalizeFlow(flow: (string | FlowItem)[] | undefined): FlowItem[] {
+  return (flow ?? []).map(f => typeof f === 'string' ? { id: f } : f);
+}
+
 export interface SongForm {
   id: string;
   sheet_id: string;
   name: string;
   key?: string;
-  chord_progression?: string; // 레거시 텍스트 (하위호환)
-  sections?: SongSection[];   // 섹션 정의 (V1, V2 등)
-  flow?: string[];            // 재생 순서 (섹션 ID 배열, 반복 포함)
-  drawing_data?: unknown[];   // 드로잉 레이어 (DrawPath[])
+  chord_progression?: string;       // 레거시 텍스트 (하위호환)
+  sections?: SongSection[];         // 섹션 정의 (V1, V2 등)
+  flow?: FlowItem[];                // 재생 순서 (반복 횟수 포함)
+  drawing_data?: unknown[];         // 드로잉 레이어 (DrawPath[])
   memo?: string;
   created_by: string;
   created_at: string;

@@ -38,7 +38,7 @@ interface SheetStore {
   applyFilters: () => void;
 
   // Song form methods
-  addSongForm: (sheetId: string, form: { name: string; key?: string; sections?: SongForm['sections']; flow?: string[]; memo?: string }) => Promise<SongForm>;
+  addSongForm: (sheetId: string, form: { name: string; key?: string; sections?: SongForm['sections']; flow?: SongForm['flow']; memo?: string }) => Promise<SongForm>;
   updateSongForm: (formId: string, updates: Partial<Pick<SongForm, 'name' | 'key' | 'chord_progression' | 'sections' | 'flow' | 'memo'>>) => Promise<void>;
   deleteSongForm: (formId: string) => Promise<void>;
 }

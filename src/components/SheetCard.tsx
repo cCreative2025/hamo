@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sheet, SongForm, SongSection } from '@/types';
+import { Sheet, SongForm, SongSection, FlowItem, normalizeFlow } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { Button } from './Button';
 import { useSheetStore } from '@/stores/sheetStore';
@@ -33,7 +33,7 @@ interface SheetCardProps {
 export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
   const [addingForm, setAddingForm] = useState(false);
   const [newForm, setNewForm] = useState({
-    name: '', key: '', sections: [] as SongSection[], flow: [] as string[], memo: '',
+    name: '', key: '', sections: [] as SongSection[], flow: [] as FlowItem[], memo: '',
   });
   const [viewing, setViewing] = useState(false);
   const { addSongForm, deleteSongForm, updateSongForm } = useSheetStore();
@@ -41,7 +41,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
   const handleAddForm = async () => {
     if (!newForm.name.trim()) return;
     await addSongForm(sheet.id, newForm);
-    setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
+    setNewForm({ name: '', key: '', sections: [], flow: [] as FlowItem[], memo: '' });
     setAddingForm(false);
   };
 
@@ -153,14 +153,18 @@ const SongFormItem: React.FC<{
     name: form.name,
     key: form.key ?? '',
     sections: (form.sections ?? []) as SongSection[],
-    flow: (form.flow ?? []) as string[],
+    flow: normalizeFlow(form.flow),
   });
 
   const sections = form.sections ?? [];
+  const normFlow = normalizeFlow(form.flow);
   // flow가 있으면 flow 순서로, 없으면 sections 순서로 표시 (하위호환)
-  const displayFlow: SongSection[] = form.flow?.length
-    ? form.flow.map(id => sections.find(s => s.id === id)).filter(Boolean) as SongSection[]
-    : sections;
+  const displayFlow: { section: SongSection; repeat: number }[] = normFlow.length
+    ? normFlow.map(item => {
+        const section = sections.find(s => s.id === item.id);
+        return section ? { section, repeat: item.repeat ?? 1 } : null;
+      }).filter(Boolean) as { section: SongSection; repeat: number }[]
+    : sections.map(s => ({ section: s, repeat: 1 }));
 
   const handleSave = async () => {
     await onUpdate(form.id, { name: draft.name, key: draft.key, sections: draft.sections, flow: draft.flow });
@@ -213,11 +217,11 @@ const SongFormItem: React.FC<{
         {/* 흐름 칩 (반복 포함) */}
         {displayFlow.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1">
-            {displayFlow.map((s, i) => (
+            {displayFlow.map(({ section: s, repeat }, i) => (
               <React.Fragment key={`${s.id}-${i}`}>
                 {i > 0 && <span className="text-neutral-300 text-xs select-none">—</span>}
                 <span className={`px-1.5 py-0.5 rounded-md text-xs font-semibold ${getSectionColor(s.type)}`}>
-                  {getSectionLabel(sections, s.id)}
+                  {getSectionLabel(sections, s.id)}{repeat > 1 ? ` ×${repeat}` : ''}
                 </span>
               </React.Fragment>
             ))}
