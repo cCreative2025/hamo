@@ -569,18 +569,20 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
             ) : error ? (
               <div className="absolute inset-0 flex items-center justify-center text-error-500 text-sm">{error}</div>
             ) : fileType === 'pdf' && fileUrl ? (
-              <div className="absolute inset-0 flex flex-col">
+              <div className="absolute inset-0 flex flex-col" style={drawingMode ? { pointerEvents: 'none' } : undefined}>
                 <PDFViewer fileUrl={fileUrl} />
               </div>
             ) : fileUrl ? (
-              <div className="absolute inset-0 flex items-center justify-center p-4 overflow-auto bg-neutral-50">
+              <div className="absolute inset-0 flex items-center justify-center p-4 overflow-auto bg-neutral-50"
+                style={drawingMode ? { pointerEvents: 'none' } : undefined}
+              >
                 <img
                   src={fileUrl}
                   alt={sheet.title}
                   draggable={false}
                   onContextMenu={(e) => e.preventDefault()}
                   className="max-w-full max-h-full object-contain rounded-xl shadow-soft"
-                  style={{ WebkitTouchCallout: 'none' } as React.CSSProperties}
+                  style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
                 />
               </div>
             ) : null}
