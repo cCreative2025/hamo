@@ -27,7 +27,7 @@ const PEN_COLORS = ['#1e1e1e', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a85
 const STROKE_WIDTHS = [{ label: '얇게', value: 2 }, { label: '보통', value: 5 }, { label: '굵게', value: 10 }];
 
 // ─── 송폼 흐름 바 ─────────────────────────────────────────────────────────────
-const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
+const SongFormBar: React.FC<{ form: SongForm; onEnterDrawing?: () => void }> = ({ form, onEnterDrawing }) => {
   const sections = (form.sections ?? []) as SongSection[];
   const normFlow = normalizeFlow(form.flow?.length ? form.flow : sections.map(s => s.id));
   const displayFlow = normFlow.map(item => {
@@ -39,21 +39,31 @@ const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
 
   return (
     <div className="px-5 py-3 bg-neutral-900 text-white flex-shrink-0">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-neutral-500 font-medium">송폼</span>
-        <span className="text-neutral-600 text-xs select-none">|</span>
-        {displayFlow.map(({ section: s, repeat }, i) => (
-          <React.Fragment key={`${s.id}-${i}`}>
-            {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
-            <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${getSectionColor(s.type)}`}>
-              {s.sectionKey && (
-                <span className={`mr-0.5 px-1 py-0.5 rounded-full text-[10px] font-bold leading-none ${getSectionBadge(s.type)}`}>
-                  {s.sectionKey}
-                </span>
-              )}{getSectionLabel(sections, s.id)}{repeat > 1 ? ` ×${repeat}` : ''}
-            </span>
-          </React.Fragment>
-        ))}
+      <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+          <span className="text-xs text-neutral-500 font-medium">송폼</span>
+          <span className="text-neutral-600 text-xs select-none">|</span>
+          {displayFlow.map(({ section: s, repeat }, i) => (
+            <React.Fragment key={`${s.id}-${i}`}>
+              {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
+              <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${getSectionColor(s.type)}`}>
+                {s.sectionKey && (
+                  <span className={`mr-0.5 px-1 py-0.5 rounded-full text-[10px] font-bold leading-none ${getSectionBadge(s.type)}`}>
+                    {s.sectionKey}
+                  </span>
+                )}{getSectionLabel(sections, s.id)}{repeat > 1 ? ` ×${repeat}` : ''}
+              </span>
+            </React.Fragment>
+          ))}
+        </div>
+        {onEnterDrawing && (
+          <button
+            onClick={onEnterDrawing}
+            className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-neutral-700 text-neutral-300 text-xs font-medium hover:bg-neutral-600 hover:text-white transition-colors"
+          >
+            악보수정
+          </button>
+        )}
       </div>
     </div>
   );
@@ -79,6 +89,23 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     sheet.song_forms?.[0]?.id ?? null
   );
   const selectedForm = sheet.song_forms?.find(f => f.id === selectedFormId) ?? null;
+
+  // Title editing
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(sheet.title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTitleSave = async () => {
+    const trimmed = editedTitle.trim();
+    if (!trimmed || trimmed === sheet.title) { setTitleEditing(false); setEditedTitle(sheet.title); return; }
+    await supabase.from('sheets').update({ title: trimmed }).eq('id', sheet.id);
+    sheet.title = trimmed; // local ref update
+    setTitleEditing(false);
+  };
+
+  useEffect(() => {
+    if (titleEditing) titleInputRef.current?.focus();
+  }, [titleEditing]);
 
   // Drawing state
   const [drawingMode, setDrawingMode] = useState(false);
@@ -268,7 +295,18 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
           {/* Row 1: 제목 + 액션 버튼 */}
           <div className="flex items-center justify-between px-5 py-3">
             <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-base font-semibold text-neutral-900 truncate">{sheet.title}</h2>
+              {titleEditing ? (
+                <input
+                  ref={titleInputRef}
+                  value={editedTitle}
+                  onChange={e => setEditedTitle(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleTitleSave(); if (e.key === 'Escape') { setTitleEditing(false); setEditedTitle(sheet.title); } }}
+                  onBlur={handleTitleSave}
+                  className="text-base font-semibold text-neutral-900 border-b border-primary-400 outline-none bg-transparent min-w-0 w-40"
+                />
+              ) : (
+                <h2 className="text-base font-semibold text-neutral-900 truncate">{sheet.title}</h2>
+              )}
               {drawingMode && selectedForm && (
                 <>
                   {selectedForm.key && (
@@ -279,7 +317,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                   <span className="flex-shrink-0 text-xs text-neutral-400 font-medium">{selectedForm.name}</span>
                 </>
               )}
-              {!drawingMode && sheet.artist && (
+              {!drawingMode && !titleEditing && sheet.artist && (
                 <p className="text-xs text-neutral-500 truncate">{sheet.artist}</p>
               )}
             </div>
@@ -333,18 +371,16 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                 </div>
               )}
 
-              {/* 일반 모드: 그리기 + 닫기 */}
+              {/* 일반 모드: 제목수정 + 닫기 */}
               {!drawingMode && (
                 <>
-                  {selectedFormId && (
-                    <button onClick={enterDrawingMode} title="그리기 모드"
-                      className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </button>
-                  )}
+                  <button onClick={() => { setTitleEditing(true); setEditedTitle(sheet.title); }} title="제목 수정"
+                    className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
                   <button onClick={onClose}
                     className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
                   >
@@ -423,7 +459,9 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         </div>
 
         {/* ── 송폼 흐름 바 ── */}
-        {selectedForm && <SongFormBar form={selectedForm} />}
+        {selectedForm && !drawingMode && (
+          <SongFormBar form={selectedForm} onEnterDrawing={enterDrawingMode} />
+        )}
 
         {/* ── Sheet viewer + canvas overlay ── */}
         <div
