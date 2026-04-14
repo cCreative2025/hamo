@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 
 const SAVED_EMAIL_KEY = 'hamo_saved_email';
+const AUTO_LOGIN_KEY  = 'hamo_auto_login';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,12 +13,24 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // 자동로그인 체커: 유효 세션 있으면 바로 이동
+  // 저장된 설정 불러오기
+  useEffect(() => {
+    const savedEmail = localStorage.getItem(SAVED_EMAIL_KEY);
+    const savedAuto  = localStorage.getItem(AUTO_LOGIN_KEY) === 'true';
+    if (savedEmail) { setEmail(savedEmail); setRememberMe(true); }
+    setAutoLogin(savedAuto);
+  }, []);
+
+  // 자동로그인: 세션 확인 후 autoLogin 켜져 있으면 바로 이동
   useEffect(() => {
     const check = async () => {
-      await checkAuth();
+      const savedAuto = localStorage.getItem(AUTO_LOGIN_KEY) === 'true';
+      if (savedAuto) {
+        await checkAuth();
+      }
       setChecking(false);
     };
     check();
@@ -29,17 +42,9 @@ export default function LoginPage() {
     }
   }, [checking, isAuthenticated, router]);
 
-  // 저장된 이메일 불러오기
-  useEffect(() => {
-    const saved = localStorage.getItem(SAVED_EMAIL_KEY);
-    if (saved) {
-      setEmail(saved);
-      setRememberMe(true);
-    }
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    localStorage.setItem(AUTO_LOGIN_KEY, autoLogin ? 'true' : 'false');
     if (rememberMe) {
       localStorage.setItem(SAVED_EMAIL_KEY, email);
     } else {
@@ -104,25 +109,34 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* 로그인 저장 */}
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <div
-              onClick={() => setRememberMe(v => !v)}
-              className={`w-4.5 h-4.5 rounded flex items-center justify-center border transition-colors flex-shrink-0 ${
-                rememberMe ? 'bg-neutral-900 border-neutral-900' : 'bg-white border-neutral-300'
-              }`}
-              style={{ width: 18, height: 18 }}
-            >
-              {rememberMe && (
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </div>
-            <span className="text-sm text-neutral-600" onClick={() => setRememberMe(v => !v)}>
-              로그인 저장
-            </span>
-          </label>
+          {/* 로그인 저장 + 자동 로그인 */}
+          <div className="flex items-center gap-5">
+            {([
+              { key: 'rememberMe', label: '로그인 저장',  value: rememberMe, set: setRememberMe },
+              { key: 'autoLogin',  label: '자동 로그인', value: autoLogin,   set: setAutoLogin  },
+            ] as const).map(({ key, label, value, set }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => set(v => !v)}
+                className="flex items-center gap-2 cursor-pointer select-none"
+              >
+                <div
+                  className={`flex items-center justify-center rounded border transition-colors flex-shrink-0 ${
+                    value ? 'bg-neutral-900 border-neutral-900' : 'bg-white border-neutral-300'
+                  }`}
+                  style={{ width: 18, height: 18 }}
+                >
+                  {value && (
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-sm text-neutral-600">{label}</span>
+              </button>
+            ))}
+          </div>
 
           {error && (
             <div className="bg-error-50 text-error-700 px-4 py-3 rounded-xl text-sm">
