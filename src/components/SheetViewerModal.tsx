@@ -115,6 +115,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [copyTargetForm, setCopyTargetForm] = useState<{ id: string; name: string; key?: string } | null>(null);
   const [cancelPending, setCancelPending] = useState(false);
+  const [clearPending, setClearPending] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const snapshotRef = useRef<DrawPath[]>([]);
   const copyMenuRef = useRef<HTMLDivElement>(null);
@@ -186,38 +187,76 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   };
 
   // Per-form drawing paths (local state, synced to DB)
+  const drawingsByFormRef = useRef<Record<string, DrawPath[]>>({});
   const [drawingsByForm, setDrawingsByForm] = useState<Record<string, DrawPath[]>>(() => {
     const init: Record<string, DrawPath[]> = {};
     for (const f of sheet.song_forms ?? []) {
       init[f.id] = (f.drawing_data as DrawPath[] | undefined) ?? [];
     }
+    drawingsByFormRef.current = init;
     return init;
   });
 
-  const currentPaths = selectedFormId ? (drawingsByForm[selectedFormId] ?? []) : [];
+  // Undo/redo stacks per form
+  const [undoStackByForm, setUndoStackByForm] = useState<Record<string, DrawPath[][]>>({});
+  const [redoStackByForm, setRedoStackByForm] = useState<Record<string, DrawPath[][]>>({});
 
-  // Debounced save
+  const currentPaths = selectedFormId ? (drawingsByForm[selectedFormId] ?? []) : [];
+  const canUndo = selectedFormId ? (undoStackByForm[selectedFormId]?.length ?? 0) > 0 : false;
+  const canRedo = selectedFormId ? (redoStackByForm[selectedFormId]?.length ?? 0) > 0 : false;
+
+  // Debounced save (direct, no stack manipulation)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handlePathsChange = useCallback((paths: DrawPath[]) => {
-    if (!selectedFormId) return;
-    setDrawingsByForm(prev => ({ ...prev, [selectedFormId]: paths }));
+  const savePathsDebounced = useCallback((formId: string, paths: DrawPath[]) => {
+    drawingsByFormRef.current = { ...drawingsByFormRef.current, [formId]: paths };
+    setDrawingsByForm({ ...drawingsByFormRef.current });
     setSaveStatus('saving');
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      await updateSongForm(selectedFormId, { drawing_data: paths } as never);
+      await updateSongForm(formId, { drawing_data: paths } as never);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     }, 1000);
-  }, [selectedFormId, updateSongForm]);
+  }, [updateSongForm]);
+
+  // Called by DrawingCanvas when user draws a new stroke
+  const handlePathsChange = useCallback((paths: DrawPath[]) => {
+    if (!selectedFormId) return;
+    const before = drawingsByFormRef.current[selectedFormId] ?? [];
+    setUndoStackByForm(prev => ({ ...prev, [selectedFormId]: [...(prev[selectedFormId] ?? []), before] }));
+    setRedoStackByForm(prev => ({ ...prev, [selectedFormId]: [] }));
+    savePathsDebounced(selectedFormId, paths);
+  }, [selectedFormId, savePathsDebounced]);
 
   const handleUndo = () => {
-    if (!selectedFormId || currentPaths.length === 0) return;
-    handlePathsChange(currentPaths.slice(0, -1));
+    if (!selectedFormId) return;
+    const stack = undoStackByForm[selectedFormId] ?? [];
+    if (stack.length === 0) return;
+    const before = stack[stack.length - 1];
+    const current = drawingsByFormRef.current[selectedFormId] ?? [];
+    setUndoStackByForm(p => ({ ...p, [selectedFormId]: stack.slice(0, -1) }));
+    setRedoStackByForm(p => ({ ...p, [selectedFormId]: [...(p[selectedFormId] ?? []), current] }));
+    savePathsDebounced(selectedFormId, before);
+  };
+
+  const handleRedo = () => {
+    if (!selectedFormId) return;
+    const stack = redoStackByForm[selectedFormId] ?? [];
+    if (stack.length === 0) return;
+    const next = stack[stack.length - 1];
+    const current = drawingsByFormRef.current[selectedFormId] ?? [];
+    setRedoStackByForm(p => ({ ...p, [selectedFormId]: stack.slice(0, -1) }));
+    setUndoStackByForm(p => ({ ...p, [selectedFormId]: [...(p[selectedFormId] ?? []), current] }));
+    savePathsDebounced(selectedFormId, next);
   };
 
   const handleClear = () => {
     if (!selectedFormId) return;
-    handlePathsChange([]);
+    const current = drawingsByFormRef.current[selectedFormId] ?? [];
+    setUndoStackByForm(p => ({ ...p, [selectedFormId]: [...(p[selectedFormId] ?? []), current] }));
+    setRedoStackByForm(p => ({ ...p, [selectedFormId]: [] }));
+    savePathsDebounced(selectedFormId, []);
+    setClearPending(false);
   };
 
   const handleCopyTo = (targetFormId: string) => {
@@ -438,7 +477,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
               </button>
 
               {/* 되돌리기 */}
-              <button onClick={handleUndo} disabled={currentPaths.length === 0} title="되돌리기"
+              <button onClick={handleUndo} disabled={!canUndo} title="되돌리기"
                 className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -446,14 +485,34 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                 </svg>
               </button>
 
-              {/* 초기화 */}
-              <button onClick={handleClear} disabled={currentPaths.length === 0} title="전체 지우기"
+              {/* 다시 복구 */}
+              <button onClick={handleRedo} disabled={!canRedo} title="다시 복구"
                 className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
                 </svg>
               </button>
+
+              {/* 초기화 */}
+              {clearPending ? (
+                <div className="flex items-center gap-1">
+                  <button onClick={handleClear}
+                    className="px-2 py-1 rounded-lg bg-error-500 text-white text-xs font-medium hover:bg-error-600 transition-colors"
+                  >지우기</button>
+                  <button onClick={() => setClearPending(false)}
+                    className="px-2 py-1 rounded-lg bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
+                  >취소</button>
+                </div>
+              ) : (
+                <button onClick={() => setClearPending(true)} disabled={currentPaths.length === 0} title="전체 지우기"
+                  className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              )}
             </div>
           )}
         </div>
