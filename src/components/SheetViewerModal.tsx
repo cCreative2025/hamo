@@ -32,7 +32,7 @@ const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
       {displayFlow.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-neutral-400 mr-1 font-medium">
-            {form.name}{form.key && ` · ${form.key}`}
+            {form.name}{form.key && `(${form.key})`}
           </span>
           {displayFlow.map((s, i) => (
             <React.Fragment key={`${s.id}-${i}`}>
@@ -196,155 +196,150 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
       <div className={`bg-white flex flex-col overflow-hidden ${drawingMode ? 'w-full h-full rounded-none' : 'rounded-2xl shadow-soft-lg w-full max-w-4xl max-h-[90vh]'}`}>
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-200 flex-shrink-0">
-          <div>
-            <h2 className="text-base font-semibold text-neutral-900">{sheet.title}</h2>
-            {sheet.artist && <p className="text-xs text-neutral-500">{sheet.artist}</p>}
-          </div>
+        <div className="border-b border-neutral-200 flex-shrink-0">
+          {/* Row 1: 제목 + 액션 버튼 */}
+          <div className="flex items-center justify-between px-5 py-3">
+            <div>
+              <h2 className="text-base font-semibold text-neutral-900">{sheet.title}</h2>
+              {sheet.artist && <p className="text-xs text-neutral-500">{sheet.artist}</p>}
+            </div>
 
-          {/* Drawing toolbar */}
-          <div className="flex items-center gap-1.5">
-            {drawingMode && !cancelPending && (
-              <>
-                {/* 색상 */}
-                <div className="flex items-center gap-1.5 mr-1">
-                  {PEN_COLORS.map(c => {
-                    const isSelected = penColor === c && activeTool === 'pen';
-                    return (
-                      <button
-                        key={c}
-                        onClick={() => { setActiveTool('pen'); setPenColor(c); }}
-                        className="rounded-full transition-transform hover:scale-110"
-                        style={{
-                          width: isSelected ? 22 : 18,
-                          height: isSelected ? 22 : 18,
-                          backgroundColor: c,
-                          border: isSelected ? `3px solid ${c}` : '2px solid transparent',
-                          outline: isSelected ? `2px solid ${c}` : 'none',
-                          outlineOffset: '2px',
-                          transform: isSelected ? 'scale(1.2)' : undefined,
-                          transition: 'all 0.15s ease',
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-
-                {/* 굵기 */}
-                <div className="flex items-center gap-0.5 mr-1">
-                  {STROKE_WIDTHS.map(sw => (
-                    <button key={sw.value} onClick={() => setStrokeWidth(sw.value)}
-                      className={`px-2 py-1 rounded-lg text-xs transition-colors ${strokeWidth === sw.value ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
-                    >{sw.label}</button>
-                  ))}
-                </div>
-
-                {/* 지우개 */}
-                <button onClick={() => setActiveTool('eraser')} title="지우개"
-                  className={`p-1.5 rounded-lg transition-colors ${activeTool === 'eraser' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-
-                {/* 되돌리기 */}
-                <button onClick={handleUndo} disabled={currentPaths.length === 0} title="되돌리기"
-                  className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                  </svg>
-                </button>
-
-                {/* 초기화 */}
-                <button onClick={handleClear} disabled={currentPaths.length === 0} title="전체 지우기"
-                  className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </button>
-
-                <div className="w-px h-5 bg-neutral-200 mx-0.5" />
-
-                {/* 저장 */}
-                <button onClick={handleSaveAndExit} title="저장하고 종료"
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-700 transition-colors"
-                >
-                  {saveStatus === 'saved' ? (
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                    </svg>
+            <div className="flex items-center gap-1.5">
+              {/* 드로잉 모드 — 저장/취소/복사 */}
+              {drawingMode && !cancelPending && (
+                <>
+                  <button onClick={handleSaveAndExit}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-700 transition-colors"
+                  >
+                    {saveStatus === 'saved'
+                      ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                      : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                    }
+                    저장
+                  </button>
+                  <button onClick={() => setCancelPending(true)}
+                    className="px-2.5 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
+                  >취소</button>
+                  {otherForms.length > 0 && (
+                    <div className="relative" ref={copyMenuRef}>
+                      <button onClick={() => setShowCopyMenu(v => !v)}
+                        className="px-2.5 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
+                      >복사</button>
+                      {showCopyMenu && (
+                        <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-soft-md py-1 z-10 min-w-32">
+                          <p className="px-3 py-1 text-xs text-neutral-400">복사할 송폼 선택</p>
+                          {otherForms.map(f => (
+                            <button key={f.id} onClick={() => handleCopyTo(f.id)}
+                              className="w-full text-left px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            >{f.name}{f.key && `(${f.key})`}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
-                  저장
-                </button>
+                </>
+              )}
 
-                {/* 취소 */}
-                <button onClick={() => setCancelPending(true)} title="취소"
-                  className="px-2.5 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
-                >취소</button>
+              {/* 취소 확인 */}
+              {drawingMode && cancelPending && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-neutral-600">변경사항을 버릴까요?</span>
+                  <button onClick={handleCancelDrawing}
+                    className="px-2.5 py-1.5 rounded-xl bg-error-500 text-white text-xs font-medium hover:bg-error-600 transition-colors"
+                  >버리기</button>
+                  <button onClick={() => setCancelPending(false)}
+                    className="px-2.5 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
+                  >돌아가기</button>
+                </div>
+              )}
 
-                {/* 복사 */}
-                {otherForms.length > 0 && (
-                  <div className="relative" ref={copyMenuRef}>
-                    <button onClick={() => setShowCopyMenu(v => !v)} title="다른 송폼에 복사"
-                      className="px-2.5 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
-                    >복사</button>
-                    {showCopyMenu && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-soft-md py-1 z-10 min-w-32">
-                        <p className="px-3 py-1 text-xs text-neutral-400">복사할 송폼 선택</p>
-                        {otherForms.map(f => (
-                          <button key={f.id} onClick={() => handleCopyTo(f.id)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-50 transition-colors"
-                          >{f.name}{f.key && ` · ${f.key}`}</button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* 취소 확인 */}
-            {drawingMode && cancelPending && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-neutral-600">변경사항을 버릴까요?</span>
-                <button onClick={handleCancelDrawing}
-                  className="px-2.5 py-1.5 rounded-xl bg-error-500 text-white text-xs font-medium hover:bg-error-600 transition-colors"
-                >버리기</button>
-                <button onClick={() => setCancelPending(false)}
-                  className="px-2.5 py-1.5 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
-                >돌아가기</button>
-              </div>
-            )}
-
-            {/* 일반 모드: 그리기 버튼 + 닫기 */}
-            {!drawingMode && (
-              <>
-                {selectedFormId && (
-                  <button onClick={enterDrawingMode} title="그리기 모드"
+              {/* 일반 모드: 그리기 + 닫기 */}
+              {!drawingMode && (
+                <>
+                  {selectedFormId && (
+                    <button onClick={enterDrawingMode} title="그리기 모드"
+                      className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  )}
+                  <button onClick={onClose}
                     className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
-                )}
-                <button onClick={onClose}
-                  className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
+
+          {/* Row 2: 드로잉 도구 (드로잉 모드일 때만) */}
+          {drawingMode && !cancelPending && (
+            <div className="flex items-center gap-2 px-5 pb-3">
+              {/* 색상 */}
+              <div className="flex items-center gap-2">
+                {PEN_COLORS.map(c => {
+                  const isSelected = penColor === c && activeTool === 'pen';
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => { setActiveTool('pen'); setPenColor(c); }}
+                      className="w-5 h-5 rounded-full flex-shrink-0"
+                      style={{
+                        backgroundColor: c,
+                        boxShadow: isSelected ? `0 0 0 2px white, 0 0 0 4px ${c}` : 'none',
+                        transition: 'box-shadow 0.15s ease',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="w-px h-4 bg-neutral-200" />
+
+              {/* 굵기 */}
+              <div className="flex items-center gap-0.5">
+                {STROKE_WIDTHS.map(sw => (
+                  <button key={sw.value} onClick={() => setStrokeWidth(sw.value)}
+                    className={`px-2 py-1 rounded-lg text-xs transition-colors ${strokeWidth === sw.value ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
+                  >{sw.label}</button>
+                ))}
+              </div>
+
+              <div className="w-px h-4 bg-neutral-200" />
+
+              {/* 지우개 */}
+              <button onClick={() => setActiveTool('eraser')} title="지우개"
+                className={`p-1.5 rounded-lg transition-colors ${activeTool === 'eraser' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+
+              {/* 되돌리기 */}
+              <button onClick={handleUndo} disabled={currentPaths.length === 0} title="되돌리기"
+                className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+              </button>
+
+              {/* 초기화 */}
+              <button onClick={handleClear} disabled={currentPaths.length === 0} title="전체 지우기"
+                className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-30 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── 송폼 흐름 바 ── */}
@@ -398,7 +393,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                         : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
-                    {form.name}{form.key && <span className="opacity-60 font-normal ml-1">· {form.key}</span>}
+                    {form.name}{form.key && <span className="opacity-60 font-normal">{`(${form.key})`}</span>}
                     {hasDrawing && <span className="ml-1.5 opacity-60">✏️</span>}
                   </button>
                 );
