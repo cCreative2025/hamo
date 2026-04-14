@@ -160,17 +160,17 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
             const label = getSectionLabel(sections, item.id);
             const repeat = item.repeat ?? 1;
             const isFlowSelected = i === selectedFlowIdx;
-            const isDefSelected = item.id === selectedDefId;
             return (
               <React.Fragment key={`${item.id}-${i}`}>
                 {i > 0 && <span className="text-neutral-300 text-sm select-none self-center">—</span>}
                 <div
                   className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all select-none
                     ${meta.color}
-                    ${isFlowSelected || isDefSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
+                    ${isFlowSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
                   onClick={() => {
+                    // flow 인덱스 기준으로만 선택 — 같은 섹션 ID 칩 동시 선택 방지
                     setSelectedFlowIdx(isFlowSelected ? null : i);
-                    setSelectedDefId(isDefSelected ? null : item.id);
+                    setSelectedDefId(isFlowSelected ? null : item.id);
                     setPendingRoot(null);
                   }}
                 >
