@@ -4,43 +4,42 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 
+// Zustand 스토어 직접 접근 (리액트 외부)
+const getAuthState = () => useAuthStore.getState();
+
 const SAVED_EMAIL_KEY = 'hamo_saved_email';
 const AUTO_LOGIN_KEY  = 'hamo_auto_login';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, checkAuth, isLoading, isAuthenticated, error } = useAuthStore();
+  const { login, isLoading, error } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // 저장된 설정 불러오기
+  // 저장된 설정 불러오기 + 자동로그인 체크
   useEffect(() => {
     const savedEmail = localStorage.getItem(SAVED_EMAIL_KEY);
     const savedAuto  = localStorage.getItem(AUTO_LOGIN_KEY) === 'true';
     if (savedEmail) { setEmail(savedEmail); setRememberMe(true); }
     setAutoLogin(savedAuto);
-  }, []);
 
-  // 자동로그인: 세션 확인 후 autoLogin 켜져 있으면 바로 이동
-  useEffect(() => {
     const check = async () => {
-      const savedAuto = localStorage.getItem(AUTO_LOGIN_KEY) === 'true';
       if (savedAuto) {
-        await checkAuth();
+        // 자동 로그인 ON일 때만 세션 확인
+        await getAuthState().checkAuth();
+        // checkAuth() 결과만 신뢰 — 스토어 외부 상태 변화 무시
+        if (getAuthState().isAuthenticated) {
+          router.replace('/sheets');
+          return;
+        }
       }
       setChecking(false);
     };
     check();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!checking && isAuthenticated) {
-      router.replace('/sheets');
-    }
-  }, [checking, isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
