@@ -13,7 +13,7 @@ export interface DrawPath {
 interface DrawingCanvasProps {
   paths: DrawPath[];
   onPathsChange: (paths: DrawPath[]) => void;
-  activeTool: 'pen' | 'eraser' | null; // null = disabled (scroll mode)
+  activeTool: 'pen' | 'eraser' | null; // null = disabled
   color: string;
   strokeWidth: number;
 }
@@ -61,7 +61,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     return () => ro.disconnect();
   }, []);
 
-  // Set canvas intrinsic size
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || canvasSize.w === 0) return;
@@ -71,7 +70,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (ctx) renderPaths(ctx, paths, canvasSize.w, canvasSize.h);
   }, [canvasSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-render when paths change
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || canvasSize.w === 0) return;
@@ -79,49 +77,41 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (ctx) renderPaths(ctx, paths, canvasSize.w, canvasSize.h);
   }, [paths, canvasSize]);
 
-  const getPoint = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+  const getPoint = useCallback((e: React.PointerEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     return {
-      x: (clientX - rect.left) / rect.width,
-      y: (clientY - rect.top) / rect.height,
+      x: (e.clientX - rect.left) / rect.width,
+      y: (e.clientY - rect.top) / rect.height,
     };
   }, []);
 
-  const startDraw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!activeTool) return;
+  const startDraw = useCallback((e: React.PointerEvent) => {
+    // 손가락 터치는 줌/이동으로 사용 — 그리기 무시
+    if (!activeTool || e.pointerType === 'touch') return;
     e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     drawingRef.current = true;
     const pt = getPoint(e);
     if (!pt) return;
-    currentPathRef.current = {
-      id: uid(),
-      tool: activeTool,
-      color,
-      width: strokeWidth,
-      points: [pt],
-    };
+    currentPathRef.current = { id: uid(), tool: activeTool, color, width: strokeWidth, points: [pt] };
   }, [activeTool, color, strokeWidth, getPoint]);
 
-  const draw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!drawingRef.current || !currentPathRef.current || !activeTool) return;
+  const draw = useCallback((e: React.PointerEvent) => {
+    if (!drawingRef.current || !currentPathRef.current || !activeTool || e.pointerType === 'touch') return;
     e.preventDefault();
     const pt = getPoint(e);
     if (!pt) return;
     currentPathRef.current.points.push(pt);
-
-    // Live render current stroke
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    renderPaths(ctx, [...paths, currentPathRef.current], canvas.width, canvas.height);
+    if (ctx) renderPaths(ctx, [...paths, currentPathRef.current], canvas.width, canvas.height);
   }, [activeTool, paths, getPoint]);
 
-  const endDraw = useCallback(() => {
+  const endDraw = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return;
     if (!drawingRef.current || !currentPathRef.current) return;
     drawingRef.current = false;
     if (currentPathRef.current.points.length >= 2) {
@@ -138,15 +128,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         style={{
           pointerEvents: activeTool ? 'auto' : 'none',
           cursor: activeTool === 'pen' ? 'crosshair' : activeTool === 'eraser' ? 'cell' : 'default',
-          touchAction: 'none',
+          touchAction: 'none', // 브라우저 기본 터치 제스처 비활성 (터치 이벤트는 부모로 버블링)
         }}
-        onMouseDown={startDraw}
-        onMouseMove={draw}
-        onMouseUp={endDraw}
-        onMouseLeave={endDraw}
-        onTouchStart={startDraw}
-        onTouchMove={draw}
-        onTouchEnd={endDraw}
+        onPointerDown={startDraw}
+        onPointerMove={draw}
+        onPointerUp={endDraw}
+        onPointerLeave={endDraw}
       />
     </div>
   );

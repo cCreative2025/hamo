@@ -91,8 +91,74 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const [copyTargetForm, setCopyTargetForm] = useState<{ id: string; name: string; key?: string } | null>(null);
   const [cancelPending, setCancelPending] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const snapshotRef = useRef<DrawPath[]>([]); // 그리기 진입 시 스냅샷 (취소용)
+  const snapshotRef = useRef<DrawPath[]>([]);
   const copyMenuRef = useRef<HTMLDivElement>(null);
+
+  // ── 핀치줌 / 이동 (드로잉 모드 전용) ─────────────────────────────────────────
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomOffset, setZoomOffset] = useState({ x: 0, y: 0 });
+  const zoomStateRef = useRef({ scale: 1, x: 0, y: 0 });
+  const pinchRef = useRef<{ dist: number; midX: number; midY: number } | null>(null);
+  const contentWrapRef = useRef<HTMLDivElement>(null);
+
+  const handlePinchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 2) return;
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    pinchRef.current = {
+      dist: Math.sqrt(dx * dx + dy * dy),
+      midX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+      midY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+    };
+  }, []);
+
+  const handlePinchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 2 || !pinchRef.current || !contentWrapRef.current) return;
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    const newDist = Math.sqrt(dx * dx + dy * dy);
+    const newMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const newMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+    const { scale: oldScale, x: oldX, y: oldY } = zoomStateRef.current;
+    const rawScale = oldScale * (newDist / pinchRef.current.dist);
+    const newScale = Math.min(5, Math.max(1, rawScale));
+    const actualDelta = newScale / oldScale;
+
+    // 핀치 중심점 기준 줌: transform-origin(0,0) 기준 좌표 변환
+    const rect = contentWrapRef.current.getBoundingClientRect();
+    const pivotX = pinchRef.current.midX - rect.left;
+    const pivotY = pinchRef.current.midY - rect.top;
+
+    const panDX = newMidX - pinchRef.current.midX;
+    const panDY = newMidY - pinchRef.current.midY;
+
+    const newX = pivotX * (1 - actualDelta) + oldX * actualDelta + panDX;
+    const newY = pivotY * (1 - actualDelta) + oldY * actualDelta + panDY;
+
+    zoomStateRef.current = { scale: newScale, x: newX, y: newY };
+    setZoomScale(newScale);
+    setZoomOffset({ x: newX, y: newY });
+
+    pinchRef.current = { dist: newDist, midX: newMidX, midY: newMidY };
+  }, []);
+
+  const handlePinchEnd = useCallback(() => {
+    pinchRef.current = null;
+    // scale이 1로 돌아오면 offset도 초기화
+    if (zoomStateRef.current.scale <= 1) {
+      zoomStateRef.current = { scale: 1, x: 0, y: 0 };
+      setZoomScale(1);
+      setZoomOffset({ x: 0, y: 0 });
+    }
+  }, []);
+
+  const resetZoom = () => {
+    zoomStateRef.current = { scale: 1, x: 0, y: 0 };
+    setZoomScale(1);
+    setZoomOffset({ x: 0, y: 0 });
+    pinchRef.current = null;
+  };
 
   // Per-form drawing paths (local state, synced to DB)
   const [drawingsByForm, setDrawingsByForm] = useState<Record<string, DrawPath[]>>(() => {
@@ -148,10 +214,10 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     }
     setDrawingMode(false);
     setCancelPending(false);
+    resetZoom();
   };
 
   const handleCancelDrawing = () => {
-    // 스냅샷으로 되돌리기
     if (selectedFormId) {
       const original = snapshotRef.current;
       setDrawingsByForm(prev => ({ ...prev, [selectedFormId]: original }));
@@ -159,6 +225,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     }
     setDrawingMode(false);
     setCancelPending(false);
+    resetZoom();
   };
 
   // Close copy menu on outside click
@@ -349,33 +416,46 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         {selectedForm && <SongFormBar form={selectedForm} />}
 
         {/* ── Sheet viewer + canvas overlay ── */}
-        <div className={`flex-1 relative ${drawingMode ? 'overflow-hidden' : 'overflow-hidden'}`}
-          onTouchStart={drawingMode ? (e) => e.stopPropagation() : undefined}
+        <div
+          ref={contentWrapRef}
+          className="flex-1 relative overflow-hidden"
+          onTouchStart={drawingMode ? handlePinchStart : undefined}
+          onTouchMove={drawingMode ? handlePinchMove : undefined}
+          onTouchEnd={drawingMode ? handlePinchEnd : undefined}
         >
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <LoadingSpinner text="파일 불러오는 중..." />
-            </div>
-          ) : error ? (
-            <div className="flex items-center justify-center h-64 text-error-500 text-sm">{error}</div>
-          ) : fileType === 'pdf' && fileUrl ? (
-            <PDFViewer fileUrl={fileUrl} />
-          ) : fileUrl ? (
-            <div className="flex items-center justify-center h-full p-4 overflow-auto bg-neutral-50">
-              <img src={fileUrl} alt={sheet.title} className="max-w-full max-h-full object-contain rounded-xl shadow-soft" />
-            </div>
-          ) : null}
+          {/* 줌/이동 적용 inner wrapper */}
+          <div
+            className="absolute inset-0"
+            style={drawingMode && (zoomScale !== 1 || zoomOffset.x !== 0 || zoomOffset.y !== 0) ? {
+              transform: `translate(${zoomOffset.x}px, ${zoomOffset.y}px) scale(${zoomScale})`,
+              transformOrigin: '0 0',
+            } : undefined}
+          >
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <LoadingSpinner text="파일 불러오는 중..." />
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center h-full text-error-500 text-sm">{error}</div>
+            ) : fileType === 'pdf' && fileUrl ? (
+              <PDFViewer fileUrl={fileUrl} />
+            ) : fileUrl ? (
+              <div className="flex items-center justify-center h-full p-4 overflow-auto bg-neutral-50">
+                <img src={fileUrl} alt={sheet.title} className="max-w-full max-h-full object-contain rounded-xl shadow-soft" />
+              </div>
+            ) : null}
 
-          {/* Drawing canvas overlay */}
-          {selectedFormId && (
-            <DrawingCanvas
-              paths={currentPaths}
-              onPathsChange={handlePathsChange}
-              activeTool={drawingMode ? activeTool : null}
-              color={penColor}
-              strokeWidth={strokeWidth}
-            />
-          )}
+            {/* Drawing canvas overlay */}
+            {selectedFormId && (
+              <DrawingCanvas
+                paths={currentPaths}
+                onPathsChange={handlePathsChange}
+                activeTool={drawingMode ? activeTool : null}
+                color={penColor}
+                strokeWidth={strokeWidth}
+              />
+            )}
+          </div>
         </div>
 
         {/* ── 송폼 선택 탭 ── */}
@@ -421,7 +501,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
               </p>
               <p className="text-xs text-neutral-500 leading-relaxed">
                 해당 송폼에 이미 그려진 내용이 있다면<br />
-                새로운 레이어로 조용히 대체됩니다. ✦
+                새로운 레이어로 대체됩니다. ✦
               </p>
             </div>
             <div className="flex gap-2">
