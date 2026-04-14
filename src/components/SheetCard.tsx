@@ -1,14 +1,35 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sheet, SongForm } from '@/types';
+import { Sheet, SongForm, SongSection } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { Button } from './Button';
 import { useSheetStore } from '@/stores/sheetStore';
 import { SheetViewerModal } from './SheetViewerModal';
 import { SongFormBuilder } from './SongFormBuilder';
-import { SongSection } from '@/types';
 
+// ─── 섹션 레이블 헬퍼 ────────────────────────────────────────────────────────
+const SECTION_COLORS: Record<string, string> = {
+  I:  'bg-neutral-100 text-neutral-600',
+  V:  'bg-primary-100 text-primary-700',
+  PC: 'bg-warning-100 text-warning-700',
+  C:  'bg-secondary-100 text-secondary-700',
+  B:  'bg-success-100 text-success-700',
+  O:  'bg-neutral-100 text-neutral-500',
+};
+
+function getSectionLabel(sections: SongSection[], id: string): string {
+  const target = sections.find(s => s.id === id);
+  if (!target) return '';
+  const sameType = sections.filter(s => s.type === target.type);
+  return sameType.length === 1 ? target.type : `${target.type}${sameType.findIndex(s => s.id === id) + 1}`;
+}
+
+function getSectionColor(type: string) {
+  return SECTION_COLORS[type] ?? 'bg-neutral-100 text-neutral-600';
+}
+
+// ─── SheetCard ────────────────────────────────────────────────────────────────
 interface SheetCardProps {
   sheet: Sheet;
   onSelect: (sheet: Sheet) => void;
@@ -16,120 +37,90 @@ interface SheetCardProps {
 }
 
 export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete }) => {
-  const [expanded, setExpanded] = useState(false);
   const [addingForm, setAddingForm] = useState(false);
   const [newForm, setNewForm] = useState({ name: '', key: '', sections: [] as SongSection[], memo: '' });
   const [viewing, setViewing] = useState(false);
-  const { addSongForm, deleteSongForm } = useSheetStore();
+  const { addSongForm, deleteSongForm, updateSongForm } = useSheetStore();
 
   const handleAddForm = async () => {
     if (!newForm.name.trim()) return;
     await addSongForm(sheet.id, newForm);
-    setNewForm({ name: '', key: '', chord_progression: '', memo: '' });
+    setNewForm({ name: '', key: '', sections: [], memo: '' });
     setAddingForm(false);
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 p-4 hover:shadow-soft transition-shadow">
-      {/* Header */}
-      <div className="mb-3">
+    <div className="bg-white rounded-2xl border border-neutral-200 p-4 hover:shadow-soft transition-shadow flex flex-col gap-3">
+
+      {/* ── 헤더 ── */}
+      <div>
         <h3 className="text-base font-semibold text-neutral-900 mb-0.5">{sheet.title}</h3>
         {sheet.artist && <p className="text-sm text-neutral-500">{sheet.artist}</p>}
-
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {sheet.genre && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
-              {sheet.genre}
-            </span>
-          )}
-          {sheet.key && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-600">
-              {sheet.key}
-            </span>
-          )}
-          {sheet.tempo && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-600">
-              {sheet.tempo} BPM
-            </span>
-          )}
+          {sheet.genre && <Tag color="primary">{sheet.genre}</Tag>}
+          {sheet.key   && <Tag>{sheet.key}</Tag>}
+          {sheet.tempo && <Tag>{sheet.tempo} BPM</Tag>}
         </div>
-
-        <p className="text-xs text-neutral-400 mt-2">{formatDate(sheet.created_at)}</p>
+        <p className="text-xs text-neutral-400 mt-1.5">{formatDate(sheet.created_at)}</p>
       </div>
 
-      {/* Song Forms */}
-      <div className="mb-3">
-        <button
-          className="flex items-center gap-1 text-xs font-medium text-neutral-500 hover:text-primary-600 transition-colors"
-          onClick={() => setExpanded(!expanded)}
-        >
-          <span>송폼 {sheet.song_forms?.length ? `(${sheet.song_forms.length})` : ''}</span>
-          <span>{expanded ? '▲' : '▼'}</span>
-        </button>
+      {/* ── 송폼 목록 (항상 노출) ── */}
+      <div className="space-y-2">
+        {sheet.song_forms?.map((form) => (
+          <SongFormItem
+            key={form.id}
+            form={form}
+            onDelete={deleteSongForm}
+            onUpdate={updateSongForm}
+          />
+        ))}
 
-        {expanded && (
-          <div className="mt-2 space-y-2">
-            {sheet.song_forms?.length === 0 && (
-              <p className="text-xs text-neutral-400">아직 송폼이 없습니다.</p>
-            )}
-            {sheet.song_forms?.map((form) => (
-              <SongFormItem key={form.id} form={form} onDelete={deleteSongForm} />
-            ))}
-
-            {addingForm ? (
-              <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    value={newForm.name}
-                    onChange={(e) => setNewForm((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="버전 이름 (예: E♭ 버전)"
-                    className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-                    autoFocus
-                  />
-                  <input
-                    type="text"
-                    value={newForm.key}
-                    onChange={(e) => setNewForm((p) => ({ ...p, key: e.target.value }))}
-                    placeholder="키 (예: E♭)"
-                    className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-                  />
-                </div>
-                <SongFormBuilder
-                  sections={newForm.sections}
-                  onChange={(sections) => setNewForm((p) => ({ ...p, sections }))}
-                />
-                <div className="flex gap-2">
-                  <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>
-                  <Button size="sm" variant="secondary" onClick={() => setAddingForm(false)}>취소</Button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAddingForm(true)}
-                className="w-full py-1.5 text-xs text-primary-500 border border-dashed border-primary-300 rounded-xl hover:bg-primary-50 transition-colors"
-              >
-                + 송폼 추가
-              </button>
-            )}
+        {addingForm ? (
+          <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={newForm.name}
+                onChange={(e) => setNewForm((p) => ({ ...p, name: e.target.value }))}
+                placeholder="버전 이름 (예: E♭ 버전)"
+                autoFocus
+                className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+              />
+              <input
+                type="text"
+                value={newForm.key}
+                onChange={(e) => setNewForm((p) => ({ ...p, key: e.target.value }))}
+                placeholder="키 (예: E♭)"
+                className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+              />
+            </div>
+            <SongFormBuilder
+              sections={newForm.sections}
+              onChange={(sections) => setNewForm((p) => ({ ...p, sections }))}
+            />
+            <div className="flex gap-2">
+              <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>
+              <Button size="sm" variant="secondary" onClick={() => setAddingForm(false)}>취소</Button>
+            </div>
           </div>
+        ) : (
+          <button
+            onClick={() => setAddingForm(true)}
+            className="w-full py-1.5 text-xs text-primary-500 border border-dashed border-primary-300 rounded-xl hover:bg-primary-50 transition-colors"
+          >
+            + 송폼 추가
+          </button>
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2">
+      {/* ── 액션 ── */}
+      <div className="flex gap-2 mt-auto">
         {sheet.sheet_versions?.[0] && (
-          <Button size="sm" variant="secondary" onClick={() => setViewing(true)}>
-            보기
-          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setViewing(true)}>보기</Button>
         )}
-        <Button size="sm" variant="primary" onClick={() => onSelect(sheet)} fullWidth>
-          선택
-        </Button>
+        <Button size="sm" variant="primary" onClick={() => onSelect(sheet)} fullWidth>선택</Button>
         {onDelete && (
-          <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>
-            삭제
-          </Button>
+          <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>삭제</Button>
         )}
       </div>
 
@@ -138,32 +129,104 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete 
   );
 };
 
-const SongFormItem: React.FC<{ form: SongForm; onDelete: (id: string) => void }> = ({ form, onDelete }) => {
-  const [open, setOpen] = useState(false);
+// ─── 태그 헬퍼 ───────────────────────────────────────────────────────────────
+const Tag: React.FC<{ children: React.ReactNode; color?: 'primary' | 'neutral' }> = ({ children, color = 'neutral' }) => (
+  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+    color === 'primary' ? 'bg-primary-100 text-primary-700' : 'bg-neutral-100 text-neutral-600'
+  }`}>{children}</span>
+);
+
+// ─── SongFormItem ─────────────────────────────────────────────────────────────
+const SongFormItem: React.FC<{
+  form: SongForm;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<SongForm>) => Promise<void>;
+}> = ({ form, onDelete, onUpdate }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ name: form.name, key: form.key ?? '', sections: (form.sections ?? []) as SongSection[] });
+  const sections = form.sections ?? [];
+
+  const handleSave = async () => {
+    await onUpdate(form.id, { name: draft.name, key: draft.key, sections: draft.sections });
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="border border-primary-300 rounded-xl p-3 bg-primary-50 space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="text"
+            value={draft.name}
+            onChange={(e) => setDraft(p => ({ ...p, name: e.target.value }))}
+            className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+            autoFocus
+          />
+          <input
+            type="text"
+            value={draft.key}
+            onChange={(e) => setDraft(p => ({ ...p, key: e.target.value }))}
+            placeholder="키"
+            className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+          />
+        </div>
+        <SongFormBuilder
+          sections={draft.sections}
+          onChange={(sections) => setDraft(p => ({ ...p, sections }))}
+        />
+        <div className="flex gap-2">
+          <Button size="sm" variant="primary" onClick={handleSave}>저장</Button>
+          <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>취소</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="border border-neutral-200 rounded-xl overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-3 py-2 text-xs bg-neutral-50 hover:bg-neutral-100 transition-colors"
-        onClick={() => setOpen(!open)}
-      >
-        <span className="font-medium text-neutral-700">{form.name}</span>
-        <div className="flex items-center gap-2">
-          {form.key && <span className="text-neutral-400">{form.key}</span>}
-          <span>{open ? '▲' : '▼'}</span>
+      {/* 헤더 + 섹션 흐름 (항상 보임) */}
+      <div className="px-3 py-2.5 bg-neutral-50">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-semibold text-neutral-700">
+            {form.name}{form.key && <span className="font-normal text-neutral-400 ml-1">· {form.key}</span>}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setEditing(true)} className="text-xs text-neutral-400 hover:text-primary-500 transition-colors">수정</button>
+            <button onClick={() => onDelete(form.id)} className="text-xs text-neutral-400 hover:text-error-500 transition-colors">삭제</button>
+          </div>
         </div>
-      </button>
-      {open && (
-        <div className="px-3 py-2 space-y-1">
-          {form.chord_progression && (
-            <pre className="text-xs text-neutral-600 whitespace-pre-wrap font-sans">{form.chord_progression}</pre>
-          )}
-          {form.memo && <p className="text-xs text-neutral-400">{form.memo}</p>}
-          <button
-            onClick={() => onDelete(form.id)}
-            className="text-xs text-error-500 hover:text-error-700 mt-1"
-          >
-            삭제
-          </button>
+
+        {/* 섹션 흐름 칩 */}
+        {sections.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {sections.map((s) => (
+              <span key={s.id} className={`px-1.5 py-0.5 rounded-md text-xs font-semibold ${getSectionColor(s.type)}`}>
+                {getSectionLabel(sections, s.id)}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-neutral-400">섹션 없음</p>
+        )}
+      </div>
+
+      {/* 코드 진행 (섹션별, 있을 때만) */}
+      {sections.some(s => s.chords.length > 0) && (
+        <div className="px-3 py-2 space-y-1.5 border-t border-neutral-100">
+          {sections.filter(s => s.chords.length > 0).map((s) => (
+            <div key={s.id} className="flex items-start gap-2">
+              <span className={`mt-0.5 px-1.5 py-0.5 rounded-md text-xs font-semibold flex-shrink-0 ${getSectionColor(s.type)}`}>
+                {getSectionLabel(sections, s.id)}
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {s.chords.map((chord, i) => (
+                  <span key={i} className="px-1.5 py-0.5 bg-white border border-neutral-200 rounded-md text-xs text-neutral-700 font-medium">
+                    {chord}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
