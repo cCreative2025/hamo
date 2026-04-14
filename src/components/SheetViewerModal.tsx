@@ -251,14 +251,27 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
             )}
 
             {/* 그리기 아이콘 버튼 (송폼 선택시만) */}
-            {selectedFormId && (
+            {selectedFormId && !drawingMode && (
               <button
-                onClick={() => setDrawingMode(v => !v)}
-                title={drawingMode ? '그리기 종료' : '그리기 모드'}
-                className={`p-2 rounded-xl transition-colors ${drawingMode ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100'}`}
+                onClick={() => setDrawingMode(true)}
+                title="그리기 모드"
+                className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
               >
+                {/* 연필 아이콘 */}
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            )}
+            {selectedFormId && drawingMode && (
+              <button
+                onClick={() => setDrawingMode(false)}
+                title="그리기 종료"
+                className="p-2 rounded-xl bg-neutral-900 text-white hover:bg-neutral-700 transition-colors"
+              >
+                {/* 접기(축소) 아이콘 */}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L3 3m0 0h6m-6 0v6M15 9l6-6m0 0h-6m6 0v6M9 15l-6 6m0 0h6m-6 0v-6M15 15l6 6m0 0h-6m6 0v-6" />
                 </svg>
               </button>
             )}
@@ -279,7 +292,9 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         {selectedForm && <SongFormBar form={selectedForm} />}
 
         {/* ── Sheet viewer + canvas overlay ── */}
-        <div className="flex-1 overflow-hidden relative">
+        <div className={`flex-1 relative ${drawingMode ? 'overflow-hidden' : 'overflow-hidden'}`}
+          onTouchStart={drawingMode ? (e) => e.stopPropagation() : undefined}
+        >
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <LoadingSpinner text="파일 불러오는 중..." />

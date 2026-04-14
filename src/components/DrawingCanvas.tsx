@@ -131,14 +131,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   }, [paths, onPathsChange]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0">
+    <div ref={containerRef} className="absolute inset-0" style={{ pointerEvents: activeTool ? 'auto' : 'none' }}>
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
         style={{
           pointerEvents: activeTool ? 'auto' : 'none',
           cursor: activeTool === 'pen' ? 'crosshair' : activeTool === 'eraser' ? 'cell' : 'default',
-          touchAction: activeTool ? 'none' : 'auto',
+          touchAction: 'none',
         }}
         onMouseDown={startDraw}
         onMouseMove={draw}
