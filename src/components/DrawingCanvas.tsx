@@ -158,8 +158,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     drawingRef.current = false;
     prevPointRef.current = null;
     if (currentPathRef.current.points.length >= 2) {
-      // pathsRef 사용 → re-render 기다리지 않고 즉시 최신 paths 참조
-      onPathsChange([...pathsRef.current, currentPathRef.current]);
+      const newPaths = [...pathsRef.current, currentPathRef.current];
+      pathsRef.current = newPaths; // prop 업데이트 전에 즉시 반영 → 다음 획도 누적됨
+      onPathsChange(newPaths);
     }
     currentPathRef.current = null;
   }, [onPathsChange]);
