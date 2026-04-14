@@ -159,10 +159,10 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm ${drawingMode ? 'bg-black p-0' : 'bg-black/60 p-4'}`}
+      onClick={(e) => { if (!drawingMode && e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-2xl shadow-soft-lg w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className={`bg-white flex flex-col overflow-hidden ${drawingMode ? 'w-full h-full rounded-none' : 'rounded-2xl shadow-soft-lg w-full max-w-4xl max-h-[90vh]'}`}>
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-200 flex-shrink-0">
@@ -250,13 +250,18 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
               </>
             )}
 
-            {/* 그리기 토글 */}
-            <button
-              onClick={() => setDrawingMode(v => !v)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${drawingMode ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
-            >
-              {drawingMode ? '✏️ 그리기 ON' : '✏️ 그리기'}
-            </button>
+            {/* 그리기 아이콘 버튼 (송폼 선택시만) */}
+            {selectedFormId && (
+              <button
+                onClick={() => setDrawingMode(v => !v)}
+                title={drawingMode ? '그리기 종료' : '그리기 모드'}
+                className={`p-2 rounded-xl transition-colors ${drawingMode ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            )}
 
             {/* 닫기 */}
             <button
