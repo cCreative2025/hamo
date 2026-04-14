@@ -20,7 +20,7 @@ interface SheetStore {
   setError: (error: string | null) => void;
 
   // Sheet methods
-  loadSheets: (teamId?: string) => Promise<void>;
+  loadSheets: (teamId?: string, userId?: string) => Promise<void>;
   selectSheet: (sheetOrId: string | Sheet) => Promise<void>;
   uploadSheet: (
     teamId: string,
@@ -68,7 +68,7 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
 
-  loadSheets: async (teamId?: string) => {
+  loadSheets: async (teamId?: string, userId?: string) => {
     set({ isLoading: true, error: null });
     try {
       let query = supabase
@@ -79,8 +79,8 @@ export const useSheetStore = create<SheetStore>((set, get) => ({
       if (teamId) {
         query = query.eq('team_id', teamId);
       } else {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) query = query.eq('owner_id', user.id);
+        const uid = userId ?? (await supabase.auth.getUser()).data.user?.id;
+        if (uid) query = query.eq('owner_id', uid);
       }
 
       const { data, error } = await query;

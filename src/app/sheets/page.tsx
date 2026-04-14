@@ -33,8 +33,8 @@ export default function SheetsPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    if (currentUser) loadSheets();
-  }, [currentUser, loadSheets]);
+    if (currentUser?.id) loadSheets(undefined, currentUser.id);
+  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setFilters({ ...filters, searchText: searchTerm });
@@ -138,7 +138,7 @@ export default function SheetsPage() {
                     });
                   }
 
-                  await loadSheets();
+                  await loadSheets(undefined, currentUser.id);
                   setShowUploader(false);
                 } catch (err) {
                   setUploadError(err instanceof Error ? err.message : '업로드 중 오류가 발생했습니다');
