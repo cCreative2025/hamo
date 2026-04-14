@@ -73,9 +73,10 @@ const SongFormBar: React.FC<{ form: SongForm; onEnterDrawing?: () => void }> = (
 interface SheetViewerModalProps {
   sheet: Sheet;
   onClose: () => void;
+  onEdit?: () => void;
 }
 
-export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClose }) => {
+export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClose, onEdit }) => {
   const { updateSongForm } = useSheetStore();
 
   // Sheet file
@@ -516,8 +517,22 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         </div>
 
         {/* ── 송폼 흐름 바 ── */}
-        {selectedForm && !drawingMode && (
-          <SongFormBar form={selectedForm} onEnterDrawing={enterDrawingMode} />
+        {!drawingMode && (
+          selectedForm
+            ? <SongFormBar form={selectedForm} onEnterDrawing={enterDrawingMode} />
+            : (
+              <div className="px-5 py-3 bg-neutral-900 text-white flex-shrink-0 flex items-center gap-2">
+                <span className="text-xs text-neutral-500">송폼이 없습니다.</span>
+                {onEdit && (
+                  <button
+                    onClick={onEdit}
+                    className="px-2 py-0.5 rounded-md bg-neutral-700 text-neutral-300 text-xs font-medium hover:bg-neutral-600 hover:text-white transition-colors"
+                  >
+                    추가
+                  </button>
+                )}
+              </div>
+            )
         )}
 
         {/* ── Sheet viewer + canvas overlay ── */}

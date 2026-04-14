@@ -266,7 +266,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
         </div>
       )}
 
-      {viewing && <SheetViewerModal sheet={sheet} onClose={() => setViewing(false)} />}
+      {viewing && <SheetViewerModal sheet={sheet} onClose={() => setViewing(false)} onEdit={() => { setViewing(false); setEditing(true); }} />}
     </div>
   );
 };
