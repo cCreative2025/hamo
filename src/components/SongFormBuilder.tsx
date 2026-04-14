@@ -59,18 +59,20 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
   const flowContainerRef = useRef<HTMLDivElement>(null);
   const badgeRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // dropIdx = 삽입 gap index (0 = 맨앞, n = 맨뒤)
+  // 가장 가까운 뱃지 찾은 후, 포인터가 그 뱃지 중심 왼쪽이면 그 앞, 오른쪽이면 그 뒤에 삽입
   const getDropIndex = (clientX: number, clientY: number): number => {
-    let closest = flow.length;
-    let minDist = Infinity;
+    let closestDist = Infinity;
+    let closestI = -1;
     badgeRefs.current.forEach((el, i) => {
       if (!el || i === dragIdx) return;
       const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const dist = Math.abs(clientX - cx) + Math.abs(clientY - cy) * 2;
-      if (dist < minDist) { minDist = dist; closest = i; }
+      const dist = Math.abs(clientX - (rect.left + rect.width / 2)) + Math.abs(clientY - (rect.top + rect.height / 2)) * 2;
+      if (dist < closestDist) { closestDist = dist; closestI = i; }
     });
-    return closest;
+    if (closestI === -1) return flow.length;
+    const rect = badgeRefs.current[closestI]!.getBoundingClientRect();
+    return clientX < rect.left + rect.width / 2 ? closestI : closestI + 1;
   };
 
   const handleDragPointerDown = (e: React.PointerEvent, i: number) => {
@@ -89,11 +91,12 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
 
   const handleDragPointerUp = (e: React.PointerEvent) => {
     if (dragIdx === null) return;
-    const target = dropIdx ?? dragIdx;
-    if (target !== dragIdx) {
+    const gap = dropIdx ?? dragIdx;
+    // dragIdx 제거 후 gap 위치 보정: dragIdx보다 뒤에 삽입하면 1 감소
+    const insertAt = gap > dragIdx ? gap - 1 : gap;
+    if (insertAt !== dragIdx) {
       const newFlow = [...flow];
       const [removed] = newFlow.splice(dragIdx, 1);
-      const insertAt = target > dragIdx ? target - 1 : target;
       newFlow.splice(insertAt, 0, removed);
       onChange(sections, newFlow);
     }
@@ -193,7 +196,8 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
             const isDropTarget = dragIdx !== null && dropIdx === i && dropIdx !== dragIdx;
             return (
               <React.Fragment key={`${item.id}-${i}`}>
-                {isDropTarget && dragIdx! > i && (
+                {/* gap index === i 일 때 삽입 위치 표시 */}
+                {dragIdx !== null && dropIdx === i && dropIdx !== dragIdx && dropIdx !== dragIdx + 1 && (
                   <div className="w-1 self-stretch rounded-full bg-primary-400 mx-0.5" />
                 )}
                 {i > 0 && dragIdx === null && <span className="text-neutral-300 text-sm select-none self-center">—</span>}
@@ -223,7 +227,8 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
                     onClick={(e) => { e.stopPropagation(); removeFromFlow(i); }}
                   >×</button>
                 </div>
-                {isDropTarget && dragIdx! < i && (
+                {/* gap index === i+1 일 때 이 뱃지 뒤에 삽입 */}
+                {dragIdx !== null && dropIdx === i + 1 && dropIdx !== dragIdx && dropIdx !== dragIdx + 1 && (
                   <div className="w-1 self-stretch rounded-full bg-primary-400 mx-0.5" />
                 )}
               </React.Fragment>
