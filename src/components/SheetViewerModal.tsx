@@ -269,9 +269,21 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         <div className="border-b border-neutral-200 flex-shrink-0">
           {/* Row 1: 제목 + 액션 버튼 */}
           <div className="flex items-center justify-between px-5 py-3">
-            <div>
-              <h2 className="text-base font-semibold text-neutral-900">{sheet.title}</h2>
-              {sheet.artist && <p className="text-xs text-neutral-500">{sheet.artist}</p>}
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-base font-semibold text-neutral-900 truncate">{sheet.title}</h2>
+              {drawingMode && selectedForm && (
+                <>
+                  {selectedForm.key && (
+                    <span className="flex-shrink-0 px-1.5 py-0.5 rounded-md text-xs font-semibold bg-primary-100 text-primary-700">
+                      {selectedForm.key}
+                    </span>
+                  )}
+                  <span className="flex-shrink-0 text-xs text-neutral-400 font-medium">{selectedForm.name}</span>
+                </>
+              )}
+              {!drawingMode && sheet.artist && (
+                <p className="text-xs text-neutral-500 truncate">{sheet.artist}</p>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5">
