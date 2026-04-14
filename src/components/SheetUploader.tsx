@@ -3,9 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './Button';
 import { LoadingSpinner } from './LoadingSpinner';
-import { SongFormBuilder } from './SongFormBuilder';
+import { SongFormInput, SongFormInputValue } from './SongFormInput';
+import { YouTubeLinkField, YouTubeDialog } from './YouTubeDialog';
 import { formatFileSize } from '@/lib/utils';
-import { SongSection, FlowItem } from '@/types';
+import { FlowItem } from '@/types';
 
 interface SheetUploaderProps {
   onUpload: (file: File, sheetData: SheetUploadData) => Promise<void>;
@@ -27,6 +28,7 @@ export interface SheetUploadData {
   key?: string;
   tempo?: number;
   time_signature?: string;
+  youtube_url?: string;
   songForm?: SongFormData;
 }
 
@@ -41,8 +43,10 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
     key: '',
     tempo: undefined,
     time_signature: '',
+    youtube_url: '',
     songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' },
   });
+  const [ytPreview, setYtPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,7 +84,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
       // 폼 초기화
       setFile(null);
       setThumbnail(null);
-      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' } });
+      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', youtube_url: '', songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' } });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -250,47 +254,35 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
         </div>
       </div>
 
+      {/* YouTube */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">레퍼런스 유튜브</label>
+        <YouTubeLinkField
+          value={formData.youtube_url ?? ''}
+          onChange={v => setFormData(p => ({ ...p, youtube_url: v }))}
+          onPreview={() => setYtPreview(true)}
+        />
+      </div>
+
       {/* Song Form */}
       <div className="mb-6 border border-neutral-200 rounded-xl p-4 bg-neutral-50">
         <h4 className="text-sm font-semibold text-neutral-700 mb-4">송폼</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">버전 이름</label>
-            <input
-              type="text"
-              value={formData.songForm?.name || ''}
-              onChange={(e) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, name: e.target.value } }))}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="예: 원키, E♭ 버전"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">키</label>
-            <input
-              type="text"
-              value={formData.songForm?.key || ''}
-              onChange={(e) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, key: e.target.value } }))}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="예: C, E♭, G"
-            />
-          </div>
-        </div>
-        <SongFormBuilder
-          sections={formData.songForm?.sections ?? []}
-          flow={formData.songForm?.flow ?? []}
-          onChange={(sections, flow) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, sections, flow } }))}
+        <SongFormInput
+          value={{
+            name: formData.songForm?.name ?? '기본',
+            key: formData.songForm?.key ?? '',
+            sections: formData.songForm?.sections ?? [],
+            flow: (formData.songForm?.flow ?? []) as FlowItem[],
+            memo: formData.songForm?.memo ?? '',
+          }}
+          onChange={(v: SongFormInputValue) => setFormData(p => ({ ...p, songForm: { ...p.songForm!, name: v.name, key: v.key, sections: v.sections, flow: v.flow, memo: v.memo } }))}
+          showMemo
         />
-        <div className="mt-4">
-          <label className="block text-xs font-medium text-neutral-600 mb-1">메모</label>
-          <input
-            type="text"
-            value={formData.songForm?.memo || ''}
-            onChange={(e) => setFormData((prev) => ({ ...prev, songForm: { ...prev.songForm!, memo: e.target.value } }))}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="참고사항"
-          />
-        </div>
       </div>
+
+      {ytPreview && formData.youtube_url && (
+        <YouTubeDialog url={formData.youtube_url} onClose={() => setYtPreview(false)} />
+      )}
 
       {/* Submit Button */}
       <Button

@@ -33,7 +33,7 @@ interface SheetStore {
       key?: string;
     }
   ) => Promise<Sheet>;
-  updateSheet: (sheetId: string, updates: Partial<Pick<Sheet, 'title' | 'artist' | 'genre' | 'key' | 'tempo' | 'time_signature'>>) => Promise<void>;
+  updateSheet: (sheetId: string, updates: Partial<Pick<Sheet, 'title' | 'artist' | 'genre' | 'key' | 'tempo' | 'time_signature' | 'youtube_url'>>) => Promise<void>;
   deleteSheet: (sheetId: string) => Promise<void>;
   replaceSheetFile: (sheetId: string, file: File) => Promise<SheetVersion>;
   uploadNewVersion: (sheetId: string, file: File) => Promise<SheetVersion>;

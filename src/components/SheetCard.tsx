@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Sheet, SongForm, SongSection, FlowItem, normalizeFlow } from '@/types';
+import { Sheet, SongForm, SongSection, normalizeFlow } from '@/types';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import { Button } from './Button';
 import { useSheetStore } from '@/stores/sheetStore';
 import { SheetViewerModal } from './SheetViewerModal';
-import { SongFormBuilder, getSectionLabel } from './SongFormBuilder';
-import { KeyPickerPopover } from './KeyPickerPopover';
+import { getSectionLabel } from './SongFormBuilder';
+import { SongFormInput, SongFormInputValue } from './SongFormInput';
+import { YouTubeLinkField, YouTubeDialog } from './YouTubeDialog';
 
 // ─── 섹션 색상 헬퍼 ──────────────────────────────────────────────────────────
 const SECTION_COLORS: Record<string, string> = {
@@ -50,14 +51,16 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
     key: sheet.key ?? '',
     tempo: sheet.tempo ?? ('' as number | ''),
     time_signature: sheet.time_signature ?? '',
+    youtube_url: sheet.youtube_url ?? '',
   });
+  const [ytPreview, setYtPreview] = useState(false);
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
   const [replacing, setReplacing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [addingForm, setAddingForm] = useState(false);
-  const [newForm, setNewForm] = useState({
-    name: '', key: '', sections: [] as SongSection[], flow: [] as FlowItem[], memo: '',
+  const [newForm, setNewForm] = useState<SongFormInputValue>({
+    name: '', key: '', sections: [] as SongSection[], flow: [], memo: '',
   });
   const [viewing, setViewing] = useState(false);
   const { addSongForm, deleteSongForm, updateSongForm, updateSheet, replaceSheetFile } = useSheetStore();
@@ -65,7 +68,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
   const handleAddForm = async () => {
     if (!newForm.name.trim()) return;
     await addSongForm(sheet.id, newForm);
-    setNewForm({ name: '', key: '', sections: [], flow: [] as FlowItem[], memo: '' });
+    setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
     setAddingForm(false);
   };
 
@@ -78,6 +81,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
       key: draft.key || undefined,
       tempo: draft.tempo !== '' ? Number(draft.tempo) : undefined,
       time_signature: draft.time_signature || undefined,
+      youtube_url: draft.youtube_url || undefined,
     });
     if (replaceFile) {
       setReplacing(true);
@@ -145,6 +149,15 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                 </Field>
               </div>
 
+              {/* 유튜브 */}
+              <Field label="레퍼런스 유튜브">
+                <YouTubeLinkField
+                  value={draft.youtube_url}
+                  onChange={v => setDraft(p => ({ ...p, youtube_url: v }))}
+                  onPreview={() => setYtPreview(true)}
+                />
+              </Field>
+
               {/* 악보 교체 */}
               <div className="border border-neutral-200 rounded-xl p-3 bg-neutral-50">
                 <p className="text-xs font-medium text-neutral-500 mb-2">악보 파일</p>
@@ -185,6 +198,17 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                 {sheet.key   && <Tag>{sheet.key}</Tag>}
                 {sheet.tempo && <Tag>{sheet.tempo} BPM</Tag>}
                 {sheet.time_signature && <Tag>{sheet.time_signature}</Tag>}
+                {sheet.youtube_url && (
+                  <button
+                    onClick={() => setYtPreview(true)}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-500 text-xs font-medium hover:bg-red-100 transition-colors"
+                  >
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    유튜브
+                  </button>
+                )}
                 <span className="text-xs text-neutral-400 ml-auto">{formatDate(sheet.created_at)}</span>
               </div>
 
@@ -202,24 +226,11 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
 
                 {addingForm ? (
                   <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={newForm.name}
-                        onChange={(e) => setNewForm((p) => ({ ...p, name: e.target.value }))}
-                        placeholder="버전 이름 (예: E♭ 버전)"
-                        autoFocus
-                        className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-                      />
-                      <KeyPickerPopover
-                        value={newForm.key}
-                        onChange={(k) => setNewForm((p) => ({ ...p, key: k }))}
-                      />
-                    </div>
-                    <SongFormBuilder
-                      sections={newForm.sections}
-                      flow={newForm.flow}
-                      onChange={(sections, flow) => setNewForm((p) => ({ ...p, sections, flow }))}
+                    <SongFormInput
+                      value={newForm}
+                      onChange={setNewForm}
+                      showMemo
+                      autoFocus
                     />
                     <div className="flex gap-2">
                       <Button size="sm" variant="primary" onClick={handleAddForm}>저장</Button>
@@ -243,7 +254,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                     <Button size="sm" variant="primary" onClick={() => setViewing(true)} fullWidth>보기</Button>
                   )}
                   <button
-                    onClick={() => { setDraft({ title: sheet.title, artist: sheet.artist ?? '', genre: sheet.genre ?? '', key: sheet.key ?? '', tempo: sheet.tempo ?? '', time_signature: sheet.time_signature ?? '' }); setEditing(true); }}
+                    onClick={() => { setDraft({ title: sheet.title, artist: sheet.artist ?? '', genre: sheet.genre ?? '', key: sheet.key ?? '', tempo: sheet.tempo ?? '', time_signature: sheet.time_signature ?? '', youtube_url: sheet.youtube_url ?? '' }); setEditing(true); }}
                     className="p-2 rounded-xl bg-neutral-100 text-neutral-500 hover:bg-neutral-200 transition-colors flex-shrink-0"
                     title="수정"
                   >
@@ -262,6 +273,8 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
       )}
 
       {viewing && <SheetViewerModal sheet={sheet} onClose={() => setViewing(false)} />}
+      {ytPreview && sheet.youtube_url && <YouTubeDialog url={sheet.youtube_url} onClose={() => setYtPreview(false)} />}
+      {ytPreview && draft.youtube_url && !sheet.youtube_url && <YouTubeDialog url={draft.youtube_url} onClose={() => setYtPreview(false)} />}
     </div>
   );
 };
@@ -281,10 +294,10 @@ const SongFormItem: React.FC<{
   onUpdate: (id: string, updates: Partial<SongForm>) => Promise<void>;
 }> = ({ form, sheetTempo, onDelete, onUpdate }) => {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({
+  const [formDraft, setFormDraft] = useState<SongFormInputValue>({
     name: form.name,
     key: form.key ?? '',
-    tempo: form.tempo ?? ('' as number | ''),
+    tempo: form.tempo ?? '',
     sections: (form.sections ?? []) as SongSection[],
     flow: normalizeFlow(form.flow),
   });
@@ -300,11 +313,11 @@ const SongFormItem: React.FC<{
 
   const handleSave = async () => {
     await onUpdate(form.id, {
-      name: draft.name,
-      key: draft.key || undefined,
-      tempo: draft.tempo !== '' ? Number(draft.tempo) : undefined,
-      sections: draft.sections,
-      flow: draft.flow,
+      name: formDraft.name,
+      key: formDraft.key || undefined,
+      tempo: formDraft.tempo !== '' ? Number(formDraft.tempo) : undefined,
+      sections: formDraft.sections,
+      flow: formDraft.flow,
     });
     setEditing(false);
   };
@@ -314,36 +327,12 @@ const SongFormItem: React.FC<{
   if (editing) {
     return (
       <div className="border border-primary-300 rounded-xl p-3 bg-primary-50 space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            type="text"
-            value={draft.name}
-            onChange={(e) => setDraft(p => ({ ...p, name: e.target.value }))}
-            placeholder="버전 이름"
-            className="px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-            autoFocus
-          />
-          <KeyPickerPopover
-            value={draft.key}
-            onChange={(k) => setDraft(p => ({ ...p, key: k }))}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-neutral-500 mb-1">
-            템포 (BPM) {sheetTempo && <span className="font-normal text-neutral-400">· 기본 {sheetTempo}</span>}
-          </label>
-          <input
-            type="number"
-            value={draft.tempo}
-            onChange={e => setDraft(p => ({ ...p, tempo: e.target.value ? parseInt(e.target.value) : '' }))}
-            placeholder={sheetTempo ? `기본 ${sheetTempo}` : '예: 120'}
-            className="w-full px-2 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
-          />
-        </div>
-        <SongFormBuilder
-          sections={draft.sections}
-          flow={draft.flow}
-          onChange={(sections, flow) => setDraft(p => ({ ...p, sections, flow }))}
+        <SongFormInput
+          value={formDraft}
+          onChange={setFormDraft}
+          showTempo
+          defaultTempo={sheetTempo}
+          autoFocus
         />
         <div className="flex gap-2">
           <Button size="sm" variant="primary" onClick={handleSave}>저장</Button>
