@@ -53,6 +53,54 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
   const [customInput, setCustomInput] = useState('');
   const customInputRef = useRef<HTMLInputElement>(null);
 
+  // ── 드래그 순서 변경 ──────────────────────────────────────────────────────────
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const flowContainerRef = useRef<HTMLDivElement>(null);
+  const badgeRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const getDropIndex = (clientX: number, clientY: number): number => {
+    let closest = flow.length;
+    let minDist = Infinity;
+    badgeRefs.current.forEach((el, i) => {
+      if (!el || i === dragIdx) return;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dist = Math.abs(clientX - cx) + Math.abs(clientY - cy) * 2;
+      if (dist < minDist) { minDist = dist; closest = i; }
+    });
+    return closest;
+  };
+
+  const handleDragPointerDown = (e: React.PointerEvent, i: number) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDragIdx(i);
+    setDropIdx(i);
+    setSelectedFlowIdx(null);
+  };
+
+  const handleDragPointerMove = (e: React.PointerEvent) => {
+    if (dragIdx === null) return;
+    setDropIdx(getDropIndex(e.clientX, e.clientY));
+  };
+
+  const handleDragPointerUp = (e: React.PointerEvent) => {
+    if (dragIdx === null) return;
+    const target = dropIdx ?? dragIdx;
+    if (target !== dragIdx) {
+      const newFlow = [...flow];
+      const [removed] = newFlow.splice(dragIdx, 1);
+      const insertAt = target > dragIdx ? target - 1 : target;
+      newFlow.splice(insertAt, 0, removed);
+      onChange(sections, newFlow);
+    }
+    setDragIdx(null);
+    setDropIdx(null);
+  };
+
   const selectedDef = sections.find(s => s.id === selectedDefId) ?? null;
   const selectedFlowItem = selectedFlowIdx !== null ? flow[selectedFlowIdx] : null;
 
@@ -125,7 +173,12 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
       {/* ── 1. 곡 구조 흐름 ── */}
       <div>
         <p className="text-xs font-medium text-neutral-500 mb-2">곡 구조 흐름</p>
-        <div className="min-h-12 flex flex-wrap gap-2 p-3 bg-neutral-50 border border-neutral-200 rounded-xl">
+        <div
+          ref={flowContainerRef}
+          className="min-h-12 flex flex-wrap gap-2 p-3 bg-neutral-50 border border-neutral-200 rounded-xl"
+          onPointerMove={handleDragPointerMove}
+          onPointerUp={handleDragPointerUp}
+        >
           {flow.length === 0 && (
             <span className="text-xs text-neutral-400 self-center">아래에서 섹션을 추가하세요</span>
           )}
@@ -136,17 +189,27 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
             const label = getSectionLabel(sections, item.id);
             const repeat = item.repeat ?? 1;
             const isFlowSelected = i === selectedFlowIdx;
+            const isDragging = dragIdx === i;
+            const isDropTarget = dragIdx !== null && dropIdx === i && dropIdx !== dragIdx;
             return (
               <React.Fragment key={`${item.id}-${i}`}>
-                {i > 0 && <span className="text-neutral-300 text-sm select-none self-center">—</span>}
+                {isDropTarget && dragIdx! > i && (
+                  <div className="w-1 self-stretch rounded-full bg-primary-400 mx-0.5" />
+                )}
+                {i > 0 && dragIdx === null && <span className="text-neutral-300 text-sm select-none self-center">—</span>}
                 <div
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all select-none
+                  ref={el => { badgeRefs.current[i] = el; }}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all select-none
                     ${meta.color}
-                    ${isFlowSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
+                    ${isDragging ? 'opacity-40 scale-95' : ''}
+                    ${isFlowSelected && !isDragging ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : ''}
+                    ${dragIdx === null ? 'cursor-grab hover:scale-105' : 'cursor-grabbing'}`}
                   onClick={() => {
+                    if (dragIdx !== null) return;
                     setSelectedFlowIdx(isFlowSelected ? null : i);
                     setSelectedDefId(isFlowSelected ? null : item.id);
                   }}
+                  onPointerDown={(e) => handleDragPointerDown(e, i)}
                 >
                   {sec.sectionKey && (
                     <span className={`px-1 py-0.5 rounded-full text-[10px] font-bold leading-none ${meta.badge}`}>
@@ -156,9 +219,13 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
                   <span>{label}{repeat > 1 ? ` ×${repeat}` : ''}</span>
                   <button
                     className="ml-0.5 opacity-40 hover:opacity-100"
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); removeFromFlow(i); }}
                   >×</button>
                 </div>
+                {isDropTarget && dragIdx! < i && (
+                  <div className="w-1 self-stretch rounded-full bg-primary-400 mx-0.5" />
+                )}
               </React.Fragment>
             );
           })}
