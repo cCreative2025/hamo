@@ -377,7 +377,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         </div>
 
         {/* ── 송폼 선택 탭 ── */}
-        {sheet.song_forms && sheet.song_forms.length > 0 && (
+        {!drawingMode && sheet.song_forms && sheet.song_forms.length > 0 && (
           <div className="border-t border-neutral-200 px-5 py-3 bg-neutral-50 flex-shrink-0">
             <p className="text-xs font-medium text-neutral-400 mb-2">송폼</p>
             <div className="flex gap-2 overflow-x-auto pb-1">
