@@ -88,6 +88,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const [penColor, setPenColor] = useState(PEN_COLORS[0]);
   const [strokeWidth, setStrokeWidth] = useState(5);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
+  const [copyTargetForm, setCopyTargetForm] = useState<{ id: string; name: string; key?: string } | null>(null);
   const [cancelPending, setCancelPending] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const snapshotRef = useRef<DrawPath[]>([]); // 그리기 진입 시 스냅샷 (취소용)
@@ -132,6 +133,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     setDrawingsByForm(prev => ({ ...prev, [targetFormId]: [...currentPaths] }));
     updateSongForm(targetFormId, { drawing_data: currentPaths } as never);
     setShowCopyMenu(false);
+    setCopyTargetForm(null);
   };
 
   const enterDrawingMode = () => {
@@ -230,9 +232,9 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                         <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-soft-md py-1 z-10 min-w-32">
                           <p className="px-3 py-1 text-xs text-neutral-400">복사할 송폼 선택</p>
                           {otherForms.map(f => (
-                            <button key={f.id} onClick={() => handleCopyTo(f.id)}
+                            <button key={f.id} onClick={() => { setCopyTargetForm({ id: f.id, name: f.name, key: f.key }); setShowCopyMenu(false); }}
                               className="w-full text-left px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-50 transition-colors"
-                            >{f.name}{f.key && `(${f.key})`}</button>
+                            >{f.name}{f.key && ` (${f.key})`}</button>
                           ))}
                         </div>
                       )}
@@ -408,6 +410,37 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
           </div>
         )}
       </div>
+
+      {/* ── 복사 확인 다이얼로그 ── */}
+      {copyTargetForm && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 rounded-2xl">
+          <div className="bg-white rounded-2xl shadow-soft-lg px-6 py-5 mx-4 max-w-sm w-full space-y-4">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-neutral-900">
+                <span className="text-primary-600">{copyTargetForm.name}{copyTargetForm.key && ` (${copyTargetForm.key})`}</span>에 덮어쓸게요
+              </p>
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                해당 송폼에 이미 그려진 내용이 있다면<br />
+                새로운 레이어로 조용히 대체됩니다. ✦
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleCopyTo(copyTargetForm.id)}
+                className="flex-1 py-2 rounded-xl bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-700 transition-colors"
+              >
+                그래도 복사하기
+              </button>
+              <button
+                onClick={() => setCopyTargetForm(null)}
+                className="flex-1 py-2 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
+              >
+                돌아가기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
