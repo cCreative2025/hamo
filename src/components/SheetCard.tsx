@@ -110,15 +110,17 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete 
       </div>
 
       {/* ── 액션 ── */}
-      <div className="flex gap-2 mt-auto">
-        {sheet.sheet_versions?.[0] && (
-          <Button size="sm" variant="secondary" onClick={() => setViewing(true)}>보기</Button>
-        )}
-        <Button size="sm" variant="primary" onClick={() => onSelect(sheet)} fullWidth>선택</Button>
-        {onDelete && (
-          <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>삭제</Button>
-        )}
-      </div>
+      {!addingForm && (
+        <div className="flex gap-2 mt-auto">
+          {sheet.sheet_versions?.[0] && (
+            <Button size="sm" variant="secondary" onClick={() => setViewing(true)}>보기</Button>
+          )}
+          <Button size="sm" variant="primary" onClick={() => onSelect(sheet)} fullWidth>선택</Button>
+          {onDelete && (
+            <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>삭제</Button>
+          )}
+        </div>
+      )}
 
       {viewing && <SheetViewerModal sheet={sheet} onClose={() => setViewing(false)} />}
     </div>
