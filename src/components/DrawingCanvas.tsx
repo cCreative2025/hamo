@@ -84,18 +84,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || canvasSize.w === 0) return;
-    canvas.width = canvasSize.w;
-    canvas.height = canvasSize.h;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvasSize.w * dpr;
+    canvas.height = canvasSize.h * dpr;
     const ctx = canvas.getContext('2d');
-    if (ctx) renderPaths(ctx, paths, canvasSize.w, canvasSize.h);
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+      renderPaths(ctx, paths, canvasSize.w, canvasSize.h);
+    }
   }, [canvasSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // paths prop 바뀔 때 (undo/redo/외부 변경) 전체 재렌더
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || canvasSize.w === 0) return;
+    const dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext('2d');
-    if (ctx) renderPaths(ctx, paths, canvasSize.w, canvasSize.h);
+    if (ctx) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      renderPaths(ctx, paths, canvasSize.w, canvasSize.h);
+    }
   }, [paths, canvasSize]);
 
   const getPoint = useCallback((e: React.PointerEvent) => {
@@ -139,6 +147,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const path = currentPathRef.current;
+    // CSS 픽셀 기준 좌표 (DPR scale transform이 적용돼 있으므로)
+    const cssW = canvas.clientWidth;
+    const cssH = canvas.clientHeight;
     ctx.save();
     ctx.globalCompositeOperation = path.tool === 'eraser' ? 'destination-out' : 'source-over';
     ctx.strokeStyle = path.tool === 'eraser' ? 'rgba(0,0,0,1)' : path.color;
@@ -146,8 +157,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(prev.x * canvas.width, prev.y * canvas.height);
-    ctx.lineTo(pt.x * canvas.width, pt.y * canvas.height);
+    ctx.moveTo(prev.x * cssW, prev.y * cssH);
+    ctx.lineTo(pt.x * cssW, pt.y * cssH);
     ctx.stroke();
     ctx.restore();
   }, [activeTool, getPoint]);
