@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { SongSection, FlowItem, normalizeFlow } from '@/types';
+import { KeyPickerPopover } from './KeyPickerPopover';
 
 // ─── 섹션 타입 정의 ───────────────────────────────────────────────────────────
 const SECTION_TYPES = [
@@ -109,10 +110,10 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
     );
   };
 
-  // 키업 (반음 이동)
-  const updateKeyOffset = (id: string, delta: number) => {
+  // 섹션 키 업데이트
+  const updateSectionKey = (id: string, key: string) => {
     onChange(
-      sections.map(s => s.id === id ? { ...s, keyOffset: (s.keyOffset ?? 0) + delta || undefined } : s),
+      sections.map(s => s.id === id ? { ...s, sectionKey: key || undefined } : s),
       flow
     );
   };
@@ -147,9 +148,9 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
                   }}
                 >
                   <span>{label}{repeat > 1 ? ` ×${repeat}` : ''}</span>
-                  {(sec.keyOffset ?? 0) !== 0 && (
-                    <span className="opacity-70 font-normal text-[10px]">
-                      {sec.keyOffset! > 0 ? `+${sec.keyOffset}` : sec.keyOffset}
+                  {sec.sectionKey && (
+                    <span className="px-1 py-0.5 rounded-full bg-white/60 text-[10px] font-bold leading-none">
+                      {sec.sectionKey}
                     </span>
                   )}
                   <button
@@ -288,25 +289,14 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
             />
           </div>
 
-          {/* 키업 */}
+          {/* 키 */}
           <div>
-            <p className="text-xs text-neutral-500 mb-1">키업 (반음)</p>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => updateKeyOffset(selectedDef.id, -1)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg border border-primary-200 text-primary-700 text-sm hover:bg-primary-100 transition-colors bg-white"
-              >－</button>
-              <span className="w-8 text-center text-sm font-semibold text-primary-700">
-                {(selectedDef.keyOffset ?? 0) > 0 ? `+${selectedDef.keyOffset}` : (selectedDef.keyOffset ?? 0)}
-              </span>
-              <button type="button" onClick={() => updateKeyOffset(selectedDef.id, +1)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg border border-primary-200 text-primary-700 text-sm hover:bg-primary-100 transition-colors bg-white"
-              >＋</button>
-              {(selectedDef.keyOffset ?? 0) !== 0 && (
-                <button type="button" onClick={() => onChange(sections.map(s => s.id === selectedDef.id ? { ...s, keyOffset: undefined } : s), flow)}
-                  className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
-                >초기화</button>
-              )}
-            </div>
+            <p className="text-xs text-neutral-500 mb-1">키</p>
+            <KeyPickerPopover
+              value={selectedDef.sectionKey ?? ''}
+              onChange={(k) => updateSectionKey(selectedDef.id, k)}
+              placeholder="키 선택"
+            />
           </div>
         </div>
       )}

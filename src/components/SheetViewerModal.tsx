@@ -40,11 +40,10 @@ const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
           <React.Fragment key={`${s.id}-${i}`}>
             {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
             <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${getSectionColor(s.type)}`}>
-              {getSectionLabel(sections, s.id)}
-              {repeat > 1 ? ` ×${repeat}` : ''}
-              {(s.keyOffset ?? 0) !== 0 && (
-                <span className="ml-0.5 opacity-70 font-normal text-[10px]">
-                  {s.keyOffset! > 0 ? `+${s.keyOffset}` : s.keyOffset}
+              {getSectionLabel(sections, s.id)}{repeat > 1 ? ` ×${repeat}` : ''}
+              {s.sectionKey && (
+                <span className="ml-0.5 px-1 py-0.5 rounded-full bg-white/30 text-[10px] font-bold leading-none">
+                  {s.sectionKey}
                 </span>
               )}
             </span>
