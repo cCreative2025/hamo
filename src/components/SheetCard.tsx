@@ -8,6 +8,7 @@ import { useSheetStore } from '@/stores/sheetStore';
 import { SheetViewerModal } from './SheetViewerModal';
 import { getSectionLabel } from './SongFormBuilder';
 import { SongFormInput, SongFormInputValue } from './SongFormInput';
+import { KeyPickerPopover } from './KeyPickerPopover';
 import { YouTubeLinkList, YouTubeDialog, YtLink } from './YouTubeDialog';
 
 // ─── 섹션 색상 헬퍼 ──────────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                   <input className={inputCls} value={draft.genre} onChange={e => setDraft(p => ({ ...p, genre: e.target.value }))} placeholder="장르" />
                 </Field>
                 <Field label="키">
-                  <input className={inputCls} value={draft.key} onChange={e => setDraft(p => ({ ...p, key: e.target.value }))} placeholder="예: C Major" />
+                  <KeyPickerPopover value={draft.key} onChange={k => setDraft(p => ({ ...p, key: k }))} />
                 </Field>
                 <Field label="템포 (BPM)">
                   <input className={inputCls} type="number" value={draft.tempo} onChange={e => setDraft(p => ({ ...p, tempo: e.target.value ? parseInt(e.target.value) : '' }))} placeholder="예: 120" />

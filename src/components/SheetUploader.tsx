@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './Button';
 import { LoadingSpinner } from './LoadingSpinner';
 import { SongFormInput, SongFormInputValue } from './SongFormInput';
+import { KeyPickerPopover } from './KeyPickerPopover';
 import { YouTubeLinkList, YtLink } from './YouTubeDialog';
 import { formatFileSize } from '@/lib/utils';
 import { FlowItem } from '@/types';
@@ -209,16 +210,8 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">
-            키
-          </label>
-          <input
-            type="text"
-            value={formData.key}
-            onChange={(e) => setFormData((prev) => ({ ...prev, key: e.target.value }))}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="예: C Major"
-          />
+          <label className="block text-sm font-medium text-neutral-700 mb-2">키</label>
+          <KeyPickerPopover value={formData.key ?? ''} onChange={k => setFormData(p => ({ ...p, key: k }))} />
         </div>
 
         <div>
