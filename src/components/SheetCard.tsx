@@ -231,25 +231,6 @@ const SongFormItem: React.FC<{
         )}
       </div>
 
-      {/* 코드 진행 (정의된 섹션별) */}
-      {sections.some(s => s.chords.length > 0) && (
-        <div className="px-3 py-2 space-y-1.5 border-t border-neutral-100">
-          {sections.filter(s => s.chords.length > 0).map((s) => (
-            <div key={s.id} className="flex items-start gap-2">
-              <span className={`mt-0.5 px-1.5 py-0.5 rounded-md text-xs font-semibold flex-shrink-0 ${getSectionColor(s.type)}`}>
-                {getSectionLabel(sections, s.id)}
-              </span>
-              <div className="flex flex-wrap gap-1">
-                {s.chords.map((chord, i) => (
-                  <span key={i} className="px-1.5 py-0.5 bg-white border border-neutral-200 rounded-md text-xs text-neutral-700 font-medium">
-                    {chord}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

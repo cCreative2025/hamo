@@ -28,36 +28,29 @@ const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
     const section = sections.find(s => s.id === item.id);
     return section ? { section, repeat: item.repeat ?? 1 } : null;
   }).filter(Boolean) as { section: SongSection; repeat: number }[];
-  const uniqueWithChords = sections.filter(s => s.chords.length > 0);
+
+  if (displayFlow.length === 0) return null;
 
   return (
-    <div className="px-5 py-3 bg-neutral-900 text-white space-y-2 flex-shrink-0">
-      {displayFlow.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-neutral-500 font-medium">송폼</span>
-          <span className="text-neutral-600 text-xs select-none">|</span>
-          {displayFlow.map(({ section: s, repeat }, i) => (
-            <React.Fragment key={`${s.id}-${i}`}>
-              {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
-              <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${getSectionColor(s.type)}`}>
-                {getSectionLabel(sections, s.id)}{repeat > 1 ? ` ×${repeat}` : ''}
-              </span>
-            </React.Fragment>
-          ))}
-        </div>
-      )}
-      {uniqueWithChords.length > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {uniqueWithChords.map(s => (
-            <div key={s.id} className="flex items-center gap-1.5">
-              <span className={`px-1.5 py-0.5 rounded-md text-xs font-semibold flex-shrink-0 ${getSectionColor(s.type)}`}>
-                {getSectionLabel(sections, s.id)}
-              </span>
-              <span className="text-xs text-neutral-300">{s.chords.join(' · ')}</span>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="px-5 py-3 bg-neutral-900 text-white flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-neutral-500 font-medium">송폼</span>
+        <span className="text-neutral-600 text-xs select-none">|</span>
+        {displayFlow.map(({ section: s, repeat }, i) => (
+          <React.Fragment key={`${s.id}-${i}`}>
+            {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
+            <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${getSectionColor(s.type)}`}>
+              {getSectionLabel(sections, s.id)}
+              {repeat > 1 ? ` ×${repeat}` : ''}
+              {(s.keyOffset ?? 0) !== 0 && (
+                <span className="ml-0.5 opacity-70 font-normal text-[10px]">
+                  {s.keyOffset! > 0 ? `+${s.keyOffset}` : s.keyOffset}
+                </span>
+              )}
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
     </div>
   );
 };

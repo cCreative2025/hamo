@@ -13,19 +13,6 @@ const SECTION_TYPES = [
   { type: 'O',  label: '아웃트로',   color: 'bg-neutral-100 text-neutral-500 border-neutral-200' },
 ] as const;
 
-const ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const QUALITIES = [
-  { value: '',     label: 'M' },
-  { value: 'm',    label: 'm' },
-  { value: '7',    label: '7' },
-  { value: 'maj7', label: 'M7' },
-  { value: 'm7',   label: 'm7' },
-  { value: 'dim',  label: 'dim' },
-  { value: 'sus4', label: 'sus4' },
-  { value: 'sus2', label: 'sus2' },
-  { value: 'add9', label: 'add9' },
-];
-
 // ─── 헬퍼 ─────────────────────────────────────────────────────────────────────
 
 /** customLabel 우선, 없으면 type별 자동 번호 */
@@ -60,7 +47,6 @@ interface SongFormBuilderProps {
 export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow, onChange }) => {
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
   const [selectedFlowIdx, setSelectedFlowIdx] = useState<number | null>(null);
-  const [pendingRoot, setPendingRoot] = useState<string | null>(null);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const customInputRef = useRef<HTMLInputElement>(null);
@@ -123,22 +109,10 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
     );
   };
 
-  // 코드 추가
-  const handleRootClick = (root: string) => setPendingRoot(root);
-
-  const handleQualityClick = (quality: string) => {
-    if (!pendingRoot || !selectedDefId) return;
-    const chord = pendingRoot + quality;
+  // 키업 (반음 이동)
+  const updateKeyOffset = (id: string, delta: number) => {
     onChange(
-      sections.map(s => s.id === selectedDefId ? { ...s, chords: [...s.chords, chord] } : s),
-      flow
-    );
-    setPendingRoot(null);
-  };
-
-  const removeChord = (secId: string, chordIdx: number) => {
-    onChange(
-      sections.map(s => s.id === secId ? { ...s, chords: s.chords.filter((_, i) => i !== chordIdx) } : s),
+      sections.map(s => s.id === id ? { ...s, keyOffset: (s.keyOffset ?? 0) + delta || undefined } : s),
       flow
     );
   };
@@ -168,14 +142,16 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
                     ${meta.color}
                     ${isFlowSelected ? 'ring-2 ring-primary-400 ring-offset-1 scale-105' : 'hover:scale-105'}`}
                   onClick={() => {
-                    // flow 인덱스 기준으로만 선택 — 같은 섹션 ID 칩 동시 선택 방지
                     setSelectedFlowIdx(isFlowSelected ? null : i);
                     setSelectedDefId(isFlowSelected ? null : item.id);
-                    setPendingRoot(null);
                   }}
                 >
                   <span>{label}{repeat > 1 ? ` ×${repeat}` : ''}</span>
-                  {sec.chords.length > 0 && <span className="opacity-60 font-normal">({sec.chords.length})</span>}
+                  {(sec.keyOffset ?? 0) !== 0 && (
+                    <span className="opacity-70 font-normal text-[10px]">
+                      {sec.keyOffset! > 0 ? `+${sec.keyOffset}` : sec.keyOffset}
+                    </span>
+                  )}
                   <button
                     className="ml-0.5 opacity-40 hover:opacity-100"
                     onClick={(e) => { e.stopPropagation(); removeFromFlow(i); }}
@@ -294,79 +270,44 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
         </div>
       </div>
 
-      {/* ── 4. 선택된 섹션 코드 편집 ── */}
+      {/* ── 4. 선택된 섹션 편집 ── */}
       {selectedDef && (
         <div className="border border-primary-200 rounded-xl p-3 bg-primary-50 space-y-3">
           <p className="text-xs font-semibold text-primary-700">
             {getSectionLabel(sections, selectedDef.id)} 편집
           </p>
 
-          {/* 레이블 커스텀 */}
+          {/* 레이블 이름 */}
           <div>
-            <p className="text-xs text-neutral-500 mb-1">레이블 (선택)</p>
+            <p className="text-xs text-neutral-500 mb-1">레이블 이름</p>
             <input
               value={selectedDef.customLabel ?? ''}
               onChange={e => updateCustomLabel(selectedDef.id, e.target.value)}
-              placeholder={`기본: ${getSectionLabel(sections.map(s => s.id === selectedDef.id ? { ...s, customLabel: undefined } : s), selectedDef.id)}`}
+              placeholder={getSectionLabel(sections.map(s => s.id === selectedDef.id ? { ...s, customLabel: undefined } : s), selectedDef.id)}
               className="w-full px-2.5 py-1.5 rounded-xl border border-primary-200 text-xs outline-none focus:border-primary-400 bg-white"
             />
           </div>
 
-          {/* 현재 코드 목록 */}
-          <div className="flex flex-wrap gap-1.5 min-h-8">
-            {selectedDef.chords.length === 0 && (
-              <span className="text-xs text-neutral-400">코드를 추가하세요</span>
-            )}
-            {selectedDef.chords.map((chord, i) => (
-              <span key={i} className="flex items-center gap-1 px-2.5 py-1 bg-white border border-primary-200 rounded-lg text-xs font-medium text-primary-700">
-                {chord}
-                <button className="opacity-40 hover:opacity-100 text-error-500" onClick={() => removeChord(selectedDef.id, i)}>×</button>
-              </span>
-            ))}
-          </div>
-
-          {/* 루트 선택 */}
+          {/* 키업 */}
           <div>
-            <p className="text-xs text-neutral-500 mb-1.5">
-              {pendingRoot ? `${pendingRoot} — 퀄리티 선택` : '루트 선택'}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {ROOTS.map(root => (
-                <button
-                  key={root}
-                  type="button"
-                  onClick={() => handleRootClick(root)}
-                  className={`w-9 h-9 rounded-xl text-xs font-semibold border transition-all hover:scale-105
-                    ${pendingRoot === root
-                      ? 'bg-primary-500 text-white border-primary-500'
-                      : 'bg-white text-neutral-700 border-neutral-300 hover:border-primary-400'}`}
-                >
-                  {root}
-                </button>
-              ))}
+            <p className="text-xs text-neutral-500 mb-1">키업 (반음)</p>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => updateKeyOffset(selectedDef.id, -1)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-primary-200 text-primary-700 text-sm hover:bg-primary-100 transition-colors bg-white"
+              >－</button>
+              <span className="w-8 text-center text-sm font-semibold text-primary-700">
+                {(selectedDef.keyOffset ?? 0) > 0 ? `+${selectedDef.keyOffset}` : (selectedDef.keyOffset ?? 0)}
+              </span>
+              <button type="button" onClick={() => updateKeyOffset(selectedDef.id, +1)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-primary-200 text-primary-700 text-sm hover:bg-primary-100 transition-colors bg-white"
+              >＋</button>
+              {(selectedDef.keyOffset ?? 0) !== 0 && (
+                <button type="button" onClick={() => onChange(sections.map(s => s.id === selectedDef.id ? { ...s, keyOffset: undefined } : s), flow)}
+                  className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
+                >초기화</button>
+              )}
             </div>
           </div>
-
-          {/* 퀄리티 선택 */}
-          {pendingRoot && (
-            <div className="flex flex-wrap gap-1.5">
-              {QUALITIES.map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => handleQualityClick(value)}
-                  className="px-3 h-9 rounded-xl text-xs font-medium border bg-white text-neutral-700 border-neutral-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
-                >
-                  {pendingRoot}{label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setPendingRoot(null)}
-                className="px-3 h-9 rounded-xl text-xs text-neutral-400 border border-neutral-200 hover:bg-neutral-100 transition-all"
-              >취소</button>
-            </div>
-          )}
         </div>
       )}
 
