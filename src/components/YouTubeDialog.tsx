@@ -1,20 +1,21 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
-function extractVideoId(url: string): string | null {
+export function extractVideoId(url: string): string | null {
   try {
     const u = new URL(url);
     if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0];
     if (u.hostname.includes('youtube.com')) {
       if (u.pathname === '/watch') return u.searchParams.get('v');
-      const embedMatch = u.pathname.match(/\/embed\/([^/?]+)/);
-      if (embedMatch) return embedMatch[1];
+      const m = u.pathname.match(/\/embed\/([^/?]+)/);
+      if (m) return m[1];
     }
   } catch {}
   return null;
 }
 
+// ─── 재생 다이얼로그 ──────────────────────────────────────────────────────────
 interface YouTubeDialogProps {
   url: string;
   onClose: () => void;
@@ -24,9 +25,9 @@ export const YouTubeDialog: React.FC<YouTubeDialogProps> = ({ url, onClose }) =>
   const videoId = extractVideoId(url);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
   return (
@@ -36,19 +37,16 @@ export const YouTubeDialog: React.FC<YouTubeDialogProps> = ({ url, onClose }) =>
     >
       <div className="bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl w-full max-w-2xl">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-            </svg>
-            <span className="text-sm text-neutral-300 font-medium truncate max-w-xs">{url}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <YtIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <span className="text-sm text-neutral-300 truncate">{url}</span>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors">
+          <button onClick={onClose} className="ml-2 p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors flex-shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-
         {videoId ? (
           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
             <iframe
@@ -60,48 +58,87 @@ export const YouTubeDialog: React.FC<YouTubeDialogProps> = ({ url, onClose }) =>
             />
           </div>
         ) : (
-          <div className="py-12 text-center text-neutral-400 text-sm">
-            유효하지 않은 YouTube URL입니다
-          </div>
+          <div className="py-12 text-center text-neutral-400 text-sm">유효하지 않은 YouTube URL입니다</div>
         )}
       </div>
     </div>
   );
 };
 
-// ─── 유튜브 링크 입력 필드 ──────────────────────────────────────────────────
-interface YouTubeLinkFieldProps {
-  value: string;
-  onChange: (val: string) => void;
-  onPreview?: () => void;
+// ─── 아이콘 헬퍼 ─────────────────────────────────────────────────────────────
+const YtIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+  </svg>
+);
+
+// ─── 다중 링크 목록 ───────────────────────────────────────────────────────────
+interface YouTubeLinkListProps {
+  value: string[];
+  onChange: (urls: string[]) => void;
 }
 
-export const YouTubeLinkField: React.FC<YouTubeLinkFieldProps> = ({ value, onChange, onPreview }) => {
-  const isValid = !!value && !!extractVideoId(value);
+export const YouTubeLinkList: React.FC<YouTubeLinkListProps> = ({ value, onChange }) => {
+  const [input, setInput] = useState('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const add = () => {
+    const trimmed = input.trim();
+    if (!trimmed || !extractVideoId(trimmed)) return;
+    onChange([...value, trimmed]);
+    setInput('');
+  };
+
+  const remove = (i: number) => onChange(value.filter((_, idx) => idx !== i));
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="relative flex-1">
-        <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-400" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-        </svg>
-        <input
-          type="url"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="YouTube URL (선택)"
-          className="w-full pl-8 pr-2.5 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
-        />
-      </div>
-      {isValid && onPreview && (
+    <div className="space-y-2">
+      {/* 기존 링크 목록 */}
+      {value.map((url, i) => (
+        <div key={i} className="flex items-center gap-1.5 bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5">
+          <YtIcon className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+          <span className="flex-1 text-xs text-neutral-600 truncate min-w-0">{url}</span>
+          <button
+            type="button"
+            onClick={() => setPreviewUrl(url)}
+            className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+          >
+            재생
+          </button>
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-neutral-400 hover:text-error-500 hover:bg-neutral-100 transition-colors text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+
+      {/* 입력 + 추가 버튼 (같은 높이) */}
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
+          <YtIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-400" />
+          <input
+            type="url"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+            placeholder="YouTube URL 추가"
+            className="w-full pl-8 pr-2.5 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
+          />
+        </div>
         <button
           type="button"
-          onClick={onPreview}
-          className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-medium hover:bg-red-100 transition-colors"
+          onClick={add}
+          disabled={!extractVideoId(input.trim())}
+          className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          미리보기
+          추가
         </button>
-      )}
+      </div>
+
+      {previewUrl && <YouTubeDialog url={previewUrl} onClose={() => setPreviewUrl(null)} />}
     </div>
   );
 };

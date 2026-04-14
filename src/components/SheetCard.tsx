@@ -8,7 +8,7 @@ import { useSheetStore } from '@/stores/sheetStore';
 import { SheetViewerModal } from './SheetViewerModal';
 import { getSectionLabel } from './SongFormBuilder';
 import { SongFormInput, SongFormInputValue } from './SongFormInput';
-import { YouTubeLinkField, YouTubeDialog } from './YouTubeDialog';
+import { YouTubeLinkList, YouTubeDialog } from './YouTubeDialog';
 
 // ─── 섹션 색상 헬퍼 ──────────────────────────────────────────────────────────
 const SECTION_COLORS: Record<string, string> = {
@@ -51,9 +51,8 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
     key: sheet.key ?? '',
     tempo: sheet.tempo ?? ('' as number | ''),
     time_signature: sheet.time_signature ?? '',
-    youtube_url: sheet.youtube_url ?? '',
+    youtube_urls: sheet.youtube_urls ?? [],
   });
-  const [ytPreview, setYtPreview] = useState(false);
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
   const [replacing, setReplacing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,7 +80,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
       key: draft.key || undefined,
       tempo: draft.tempo !== '' ? Number(draft.tempo) : undefined,
       time_signature: draft.time_signature || undefined,
-      youtube_url: draft.youtube_url || undefined,
+      youtube_urls: draft.youtube_urls.length ? draft.youtube_urls : undefined,
     });
     if (replaceFile) {
       setReplacing(true);
@@ -151,10 +150,9 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
 
               {/* 유튜브 */}
               <Field label="레퍼런스 유튜브">
-                <YouTubeLinkField
-                  value={draft.youtube_url}
-                  onChange={v => setDraft(p => ({ ...p, youtube_url: v }))}
-                  onPreview={() => setYtPreview(true)}
+                <YouTubeLinkList
+                  value={draft.youtube_urls}
+                  onChange={urls => setDraft(p => ({ ...p, youtube_urls: urls }))}
                 />
               </Field>
 
@@ -198,16 +196,8 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                 {sheet.key   && <Tag>{sheet.key}</Tag>}
                 {sheet.tempo && <Tag>{sheet.tempo} BPM</Tag>}
                 {sheet.time_signature && <Tag>{sheet.time_signature}</Tag>}
-                {sheet.youtube_url && (
-                  <button
-                    onClick={() => setYtPreview(true)}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-500 text-xs font-medium hover:bg-red-100 transition-colors"
-                  >
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                    </svg>
-                    유튜브
-                  </button>
+                {(sheet.youtube_urls?.length ?? 0) > 0 && (
+                  <YtTagList urls={sheet.youtube_urls!} />
                 )}
                 <span className="text-xs text-neutral-400 ml-auto">{formatDate(sheet.created_at)}</span>
               </div>
@@ -253,15 +243,17 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                   {sheet.sheet_versions?.[0] && (
                     <Button size="sm" variant="primary" onClick={() => setViewing(true)} fullWidth>보기</Button>
                   )}
-                  <button
-                    onClick={() => { setDraft({ title: sheet.title, artist: sheet.artist ?? '', genre: sheet.genre ?? '', key: sheet.key ?? '', tempo: sheet.tempo ?? '', time_signature: sheet.time_signature ?? '', youtube_url: sheet.youtube_url ?? '' }); setEditing(true); }}
-                    className="p-2 rounded-xl bg-neutral-100 text-neutral-500 hover:bg-neutral-200 transition-colors flex-shrink-0"
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    className="px-2"
                     title="수정"
+                    onClick={() => { setDraft({ title: sheet.title, artist: sheet.artist ?? '', genre: sheet.genre ?? '', key: sheet.key ?? '', tempo: sheet.tempo ?? '', time_signature: sheet.time_signature ?? '', youtube_urls: sheet.youtube_urls ?? [] }); setEditing(true); }}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                  </button>
+                  </Button>
                   {onDelete && (
                     <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>삭제</Button>
                   )}
@@ -273,8 +265,6 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
       )}
 
       {viewing && <SheetViewerModal sheet={sheet} onClose={() => setViewing(false)} />}
-      {ytPreview && sheet.youtube_url && <YouTubeDialog url={sheet.youtube_url} onClose={() => setYtPreview(false)} />}
-      {ytPreview && draft.youtube_url && !sheet.youtube_url && <YouTubeDialog url={draft.youtube_url} onClose={() => setYtPreview(false)} />}
     </div>
   );
 };
@@ -378,5 +368,27 @@ const SongFormItem: React.FC<{
         )}
       </div>
     </div>
+  );
+};
+
+// ─── 유튜브 태그 버튼 목록 ────────────────────────────────────────────────────
+const YtTagList: React.FC<{ urls: string[] }> = ({ urls }) => {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  return (
+    <>
+      {urls.map((url, i) => (
+        <button
+          key={i}
+          onClick={() => setPreviewUrl(url)}
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-500 text-xs font-medium hover:bg-red-100 transition-colors"
+        >
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
+          {urls.length > 1 ? `영상 ${i + 1}` : '유튜브'}
+        </button>
+      ))}
+      {previewUrl && <YouTubeDialog url={previewUrl} onClose={() => setPreviewUrl(null)} />}
+    </>
   );
 };
