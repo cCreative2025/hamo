@@ -163,7 +163,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         onPointerDown={startDraw}
         onPointerMove={draw}
         onPointerUp={endDraw}
-        onPointerLeave={endDraw}
+        onPointerCancel={endDraw}
       />
     </div>
   );
