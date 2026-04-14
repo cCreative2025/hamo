@@ -82,7 +82,7 @@ export interface Sheet {
   tempo?: number;
   time_signature?: string;
   description?: string;
-  youtube_urls?: string[];
+  youtube_urls?: { url: string; label?: string }[];
   active_version_id?: string;
   created_by?: string;
   created_at: string;

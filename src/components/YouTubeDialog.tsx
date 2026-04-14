@@ -73,34 +73,49 @@ const YtIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 // ─── 다중 링크 목록 ───────────────────────────────────────────────────────────
+export interface YtLink { url: string; label?: string }
+
 interface YouTubeLinkListProps {
-  value: string[];
-  onChange: (urls: string[]) => void;
+  value: YtLink[];
+  onChange: (links: YtLink[]) => void;
 }
 
 export const YouTubeLinkList: React.FC<YouTubeLinkListProps> = ({ value, onChange }) => {
-  const [input, setInput] = useState('');
+  const [inputUrl, setInputUrl] = useState('');
+  const [inputLabel, setInputLabel] = useState('');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const add = () => {
-    const trimmed = input.trim();
+    const trimmed = inputUrl.trim();
     if (!trimmed || !extractVideoId(trimmed)) return;
-    onChange([...value, trimmed]);
-    setInput('');
+    onChange([...value, { url: trimmed, label: inputLabel.trim() || undefined }]);
+    setInputUrl('');
+    setInputLabel('');
   };
 
   const remove = (i: number) => onChange(value.filter((_, idx) => idx !== i));
 
+  const updateLabel = (i: number, label: string) =>
+    onChange(value.map((item, idx) => idx === i ? { ...item, label: label.slice(0, 5) || undefined } : item));
+
   return (
     <div className="space-y-2">
       {/* 기존 링크 목록 */}
-      {value.map((url, i) => (
+      {value.map((item, i) => (
         <div key={i} className="flex items-center gap-1.5 bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5">
           <YtIcon className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-          <span className="flex-1 text-xs text-neutral-600 truncate min-w-0">{url}</span>
+          <input
+            type="text"
+            value={item.label ?? ''}
+            onChange={e => updateLabel(i, e.target.value)}
+            placeholder={`영상${i + 1}`}
+            maxLength={5}
+            className="w-12 flex-shrink-0 px-1.5 py-0.5 text-xs border border-neutral-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-red-300 text-center"
+          />
+          <span className="flex-1 text-xs text-neutral-400 truncate min-w-0">{item.url}</span>
           <button
             type="button"
-            onClick={() => setPreviewUrl(url)}
+            onClick={() => setPreviewUrl(item.url)}
             className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
           >
             재생
@@ -108,21 +123,29 @@ export const YouTubeLinkList: React.FC<YouTubeLinkListProps> = ({ value, onChang
           <button
             type="button"
             onClick={() => remove(i)}
-            className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-neutral-400 hover:text-error-500 hover:bg-neutral-100 transition-colors text-xs"
+            className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-neutral-400 hover:text-red-500 hover:bg-neutral-100 transition-colors text-xs"
           >
             ✕
           </button>
         </div>
       ))}
 
-      {/* 입력 + 추가 버튼 (같은 높이) */}
+      {/* 입력 + 추가 버튼 */}
       <div className="flex gap-1.5">
+        <input
+          type="text"
+          value={inputLabel}
+          onChange={e => setInputLabel(e.target.value.slice(0, 5))}
+          placeholder="별칭"
+          maxLength={5}
+          className="w-14 flex-shrink-0 px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white text-center"
+        />
         <div className="relative flex-1">
           <YtIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-400" />
           <input
             type="url"
-            value={input}
-            onChange={e => setInput(e.target.value)}
+            value={inputUrl}
+            onChange={e => setInputUrl(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
             placeholder="YouTube URL 추가"
             className="w-full pl-8 pr-2.5 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
@@ -131,7 +154,7 @@ export const YouTubeLinkList: React.FC<YouTubeLinkListProps> = ({ value, onChang
         <button
           type="button"
           onClick={add}
-          disabled={!extractVideoId(input.trim())}
+          disabled={!extractVideoId(inputUrl.trim())}
           className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           추가

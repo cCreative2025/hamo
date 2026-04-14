@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './Button';
 import { LoadingSpinner } from './LoadingSpinner';
 import { SongFormInput, SongFormInputValue } from './SongFormInput';
-import { YouTubeLinkList } from './YouTubeDialog';
+import { YouTubeLinkList, YtLink } from './YouTubeDialog';
 import { formatFileSize } from '@/lib/utils';
 import { FlowItem } from '@/types';
 
@@ -28,7 +28,7 @@ export interface SheetUploadData {
   key?: string;
   tempo?: number;
   time_signature?: string;
-  youtube_urls?: string[];
+  youtube_urls?: YtLink[];
   songForm?: SongFormData;
 }
 
@@ -43,7 +43,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
     key: '',
     tempo: undefined,
     time_signature: '',
-    youtube_urls: [] as string[],
+    youtube_urls: [] as YtLink[],
     songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' },
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +83,7 @@ export const SheetUploader: React.FC<SheetUploaderProps> = ({ onUpload, isLoadin
       // 폼 초기화
       setFile(null);
       setThumbnail(null);
-      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', youtube_urls: [], songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' } });
+      setFormData({ title: '', artist: '', genre: '', key: '', tempo: undefined, time_signature: '', youtube_urls: [] as YtLink[], songForm: { name: '기본', key: '', sections: [], flow: [], memo: '' } });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }

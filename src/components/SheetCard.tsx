@@ -8,7 +8,7 @@ import { useSheetStore } from '@/stores/sheetStore';
 import { SheetViewerModal } from './SheetViewerModal';
 import { getSectionLabel } from './SongFormBuilder';
 import { SongFormInput, SongFormInputValue } from './SongFormInput';
-import { YouTubeLinkList, YouTubeDialog } from './YouTubeDialog';
+import { YouTubeLinkList, YouTubeDialog, YtLink } from './YouTubeDialog';
 
 // ─── 섹션 색상 헬퍼 ──────────────────────────────────────────────────────────
 const SECTION_COLORS: Record<string, string> = {
@@ -51,7 +51,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
     key: sheet.key ?? '',
     tempo: sheet.tempo ?? ('' as number | ''),
     time_signature: sheet.time_signature ?? '',
-    youtube_urls: sheet.youtube_urls ?? [],
+    youtube_urls: sheet.youtube_urls ?? [] as YtLink[],
   });
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
   const [replacing, setReplacing] = useState(false);
@@ -370,20 +370,20 @@ const SongFormItem: React.FC<{
 };
 
 // ─── 유튜브 태그 버튼 목록 ────────────────────────────────────────────────────
-const YtTagList: React.FC<{ urls: string[] }> = ({ urls }) => {
+const YtTagList: React.FC<{ urls: YtLink[] }> = ({ urls }) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   return (
     <>
-      {urls.map((url, i) => (
+      {urls.map((item, i) => (
         <button
           key={i}
-          onClick={() => setPreviewUrl(url)}
+          onClick={() => setPreviewUrl(item.url)}
           className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-500 text-xs font-medium hover:bg-red-100 transition-colors"
         >
           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
             <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
           </svg>
-          {urls.length > 1 ? `영상 ${i + 1}` : '유튜브'}
+          {item.label ?? (urls.length > 1 ? `영상${i + 1}` : '유튜브')}
         </button>
       ))}
       {previewUrl && <YouTubeDialog url={previewUrl} onClose={() => setPreviewUrl(null)} />}
