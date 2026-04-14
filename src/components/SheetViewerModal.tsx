@@ -15,7 +15,13 @@ const SECTION_COLORS: Record<string, string> = {
   PC: 'bg-warning-100 text-warning-700', C: 'bg-secondary-100 text-secondary-700',
   B: 'bg-success-100 text-success-700', O: 'bg-neutral-100 text-neutral-500',
 };
+const SECTION_BADGE_COLORS: Record<string, string> = {
+  I: 'bg-neutral-500 text-white', V: 'bg-primary-600 text-white',
+  PC: 'bg-warning-600 text-white', C: 'bg-secondary-600 text-white',
+  B: 'bg-success-600 text-white', O: 'bg-neutral-400 text-white',
+};
 function getSectionColor(type: string) { return SECTION_COLORS[type] ?? 'bg-violet-100 text-violet-700'; }
+function getSectionBadge(type: string) { return SECTION_BADGE_COLORS[type] ?? 'bg-violet-600 text-white'; }
 
 const PEN_COLORS = ['#1e1e1e', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7'];
 const STROKE_WIDTHS = [{ label: '얇게', value: 2 }, { label: '보통', value: 5 }, { label: '굵게', value: 10 }];
@@ -41,7 +47,7 @@ const SongFormBar: React.FC<{ form: SongForm }> = ({ form }) => {
             {i > 0 && <span className="text-neutral-600 text-sm select-none">—</span>}
             <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${getSectionColor(s.type)}`}>
               {s.sectionKey && (
-                <span className="mr-0.5 px-1 py-0.5 rounded-full bg-white/30 text-[10px] font-bold leading-none">
+                <span className={`mr-0.5 px-1 py-0.5 rounded-full text-[10px] font-bold leading-none ${getSectionBadge(s.type)}`}>
                   {s.sectionKey}
                 </span>
               )}{getSectionLabel(sections, s.id)}{repeat > 1 ? ` ×${repeat}` : ''}

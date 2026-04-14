@@ -6,12 +6,12 @@ import { KeyPickerPopover } from './KeyPickerPopover';
 
 // ─── 섹션 타입 정의 ───────────────────────────────────────────────────────────
 const SECTION_TYPES = [
-  { type: 'I',  label: '인트로',     color: 'bg-neutral-100 text-neutral-600 border-neutral-300' },
-  { type: 'V',  label: '버스',       color: 'bg-primary-100 text-primary-700 border-primary-300' },
-  { type: 'PC', label: '프리코러스', color: 'bg-warning-100 text-warning-700 border-warning-300' },
-  { type: 'C',  label: '코러스',     color: 'bg-secondary-100 text-secondary-700 border-secondary-300' },
-  { type: 'B',  label: '브릿지',     color: 'bg-success-100 text-success-700 border-success-300' },
-  { type: 'O',  label: '아웃트로',   color: 'bg-neutral-100 text-neutral-500 border-neutral-200' },
+  { type: 'I',  label: '인트로',     color: 'bg-neutral-100 text-neutral-600 border-neutral-300', badge: 'bg-neutral-500 text-white' },
+  { type: 'V',  label: '버스',       color: 'bg-primary-100 text-primary-700 border-primary-300', badge: 'bg-primary-600 text-white' },
+  { type: 'PC', label: '프리코러스', color: 'bg-warning-100 text-warning-700 border-warning-300', badge: 'bg-warning-600 text-white' },
+  { type: 'C',  label: '코러스',     color: 'bg-secondary-100 text-secondary-700 border-secondary-300', badge: 'bg-secondary-600 text-white' },
+  { type: 'B',  label: '브릿지',     color: 'bg-success-100 text-success-700 border-success-300', badge: 'bg-success-600 text-white' },
+  { type: 'O',  label: '아웃트로',   color: 'bg-neutral-100 text-neutral-500 border-neutral-200', badge: 'bg-neutral-400 text-white' },
 ] as const;
 
 // ─── 헬퍼 ─────────────────────────────────────────────────────────────────────
@@ -30,6 +30,7 @@ function getSectionMeta(type: string) {
   return SECTION_TYPES.find(s => s.type === type) ?? {
     type, label: type,
     color: 'bg-violet-100 text-violet-700 border-violet-300',
+    badge: 'bg-violet-600 text-white',
   };
 }
 
@@ -148,7 +149,7 @@ export const SongFormBuilder: React.FC<SongFormBuilderProps> = ({ sections, flow
                   }}
                 >
                   {sec.sectionKey && (
-                    <span className="px-1 py-0.5 rounded-full bg-white/60 text-[10px] font-bold leading-none">
+                    <span className={`px-1 py-0.5 rounded-full text-[10px] font-bold leading-none ${meta.badge}`}>
                       {sec.sectionKey}
                     </span>
                   )}
