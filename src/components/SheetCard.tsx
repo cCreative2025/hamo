@@ -25,11 +25,11 @@ function getSectionColor(type: string) {
 // ─── SheetCard ────────────────────────────────────────────────────────────────
 interface SheetCardProps {
   sheet: Sheet;
-  onSelect: (sheet: Sheet) => void;
+  onSelect?: (sheet: Sheet) => void;
   onDelete?: (sheetId: string) => void;
 }
 
-export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete }) => {
+export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
   const [addingForm, setAddingForm] = useState(false);
   const [newForm, setNewForm] = useState({
     name: '', key: '', sections: [] as SongSection[], flow: [] as string[], memo: '',
@@ -113,9 +113,8 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onSelect, onDelete 
       {!addingForm && (
         <div className="flex gap-2 mt-auto">
           {sheet.sheet_versions?.[0] && (
-            <Button size="sm" variant="secondary" onClick={() => setViewing(true)}>보기</Button>
+            <Button size="sm" variant="secondary" onClick={() => setViewing(true)} fullWidth>보기</Button>
           )}
-          <Button size="sm" variant="primary" onClick={() => onSelect(sheet)} fullWidth>선택</Button>
           {onDelete && (
             <Button size="sm" variant="danger" onClick={() => onDelete(sheet.id)}>삭제</Button>
           )}
