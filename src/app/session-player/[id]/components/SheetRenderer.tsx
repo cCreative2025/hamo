@@ -113,7 +113,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
       if (item.song_form_id) {
         await updateSongFormData(item.song_form_id, data);
       } else {
-        await createSongFormForItem(item.id, data);
+        await createSongFormForItem(item.id, { ...data, sheet_id: item.sheet_id });
       }
       setFormEditorOpen(false);
     } catch (e) {
@@ -158,7 +158,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
     // Base layer: song_form required → auto-create if missing
     if (target === 'base' && !songFormId) {
       try {
-        const newForm = await createSongFormForItem(item.id, { name: defaultFormName });
+        const newForm = await createSongFormForItem(item.id, { name: defaultFormName, sheet_id: item.sheet_id });
         songFormId = newForm.id;
       } catch (e) {
         console.error('[enterDraw] auto-create song_form failed:', e);

@@ -66,7 +66,7 @@ interface SessionPlayerStore {
   updateBaseLayer: (songFormId: string, paths: unknown[]) => Promise<void>;
   upsertMyLayer: (sessionId: string, sessionSongId: string, paths: unknown[], isGuest: boolean, songFormId?: string | null) => Promise<void>;
   updateSongFormData: (songFormId: string, data: { name?: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => Promise<void>;
-  createSongFormForItem: (sessionSongId: string, data: { name: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => Promise<{ id: string }>;
+  createSongFormForItem: (sessionSongId: string, data: { name: string; sheet_id?: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => Promise<{ id: string }>;
 }
 
 /**
@@ -357,7 +357,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
   },
 
   /** Create a new song_form and link it to a session_song */
-  createSongFormForItem: async (sessionSongId: string, data: { name: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => {
+  createSongFormForItem: async (sessionSongId: string, data: { name: string; sheet_id?: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
     const { data: newForm, error } = await supabase
