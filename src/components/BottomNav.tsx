@@ -60,7 +60,7 @@ export const BottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 z-40 md:relative md:bottom-auto md:border-t-0 md:border-r">
+    <nav className="bg-white border-t border-neutral-200 md:border-t-0 md:border-r">
       <div className="flex md:flex-col">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);

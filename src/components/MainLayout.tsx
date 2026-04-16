@@ -10,18 +10,34 @@ interface MainLayoutProps {
   footer?: React.ReactNode;
 }
 
+/**
+ * Flutter Scaffold 구조:
+ *
+ * ┌─────────────────────┐  h-screen
+ * │ Header              │  flex-shrink-0
+ * ├─────────┬───────────┤
+ * │ Sidebar │ content   │  flex-1 overflow-hidden
+ * │ (desk)  │ (scroll)  │
+ * │         ├───────────┤
+ * │         │ footer    │  flex-shrink-0 (저장버튼 등)
+ * ├─────────┴───────────┤
+ * │ BottomNav (mobile)  │  flex-shrink-0 (normal flow, not fixed)
+ * └─────────────────────┘
+ */
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, title, footer }) => {
   return (
-    <div className="flex flex-col h-screen bg-neutral-50">
+    <div className="flex flex-col h-screen bg-neutral-50 dark:bg-neutral-950">
+      {/* AppBar */}
       <Header title={title} />
 
+      {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Sidebar */}
         <div className="hidden md:flex md:w-16 bg-white border-r border-neutral-200">
           <BottomNav />
         </div>
 
-        {/* Body: scrollable content + optional sticky footer */}
+        {/* Main: content (scroll) + footer (sticky) */}
         <main className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-auto">
             {children}
@@ -34,11 +50,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, title, footer 
         </main>
       </div>
 
-      {/* Spacer: fixed BottomNav 높이만큼 공간 확보 (mobile only) */}
-      <div className="h-16 flex-shrink-0 md:hidden" />
-
-      {/* Mobile Bottom Navigation (fixed) */}
-      <div className="md:hidden">
+      {/* Mobile BottomNav — normal flow, not fixed */}
+      <div className="md:hidden flex-shrink-0">
         <BottomNav />
       </div>
     </div>
