@@ -44,7 +44,7 @@ export function SongFormBar({ form, layerCount = 0, onLayerOpen }: SongFormBarPr
         <span className="text-[11px] text-neutral-500 font-medium">송폼</span>
         <span className="text-neutral-600 text-xs select-none">|</span>
         {isEmpty && (
-          <span className="text-xs text-neutral-600">송폼 없음</span>
+          <span className="text-xs text-neutral-600">없음</span>
         )}
         {!isEmpty && form?.key && (
           <>
