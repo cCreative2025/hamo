@@ -181,7 +181,7 @@ export default function SessionDetailPage() {
 
   if (!currentSession) return null;
 
-  const saveFooter = (
+  const saveFooter = isSessionCreator ? (
     <div className="max-w-2xl mx-auto w-full px-4 py-3 space-y-2">
       {saveError && (
         <p className="text-xs text-red-500 text-center bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">
@@ -196,7 +196,7 @@ export default function SessionDetailPage() {
         {saving ? '저장 중...' : '저장'}
       </button>
     </div>
-  );
+  ) : undefined;
 
   return (
     <MainLayout title="세션" footer={saveFooter}>
@@ -245,8 +245,8 @@ export default function SessionDetailPage() {
           </div>
         </section>
 
-        {/* Team Selection */}
-        {teams.length > 0 && (
+        {/* Team Selection — creator only */}
+        {isSessionCreator && teams.length > 0 && (
           <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 mb-4">
             <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">공유할 팀</p>
             <select
@@ -274,24 +274,25 @@ export default function SessionDetailPage() {
           </div>
 
           <div className="divide-y divide-neutral-100 dark:divide-neutral-700/50">
-            {/* Gap at top */}
-            <AddGap
-              index={0}
-              activeIndex={addMenuIndex}
-              onToggle={setAddMenuIndex}
-              onAddSong={handleOpenSheetPicker}
-              onAddMent={handleAddMent}
-            />
+            {/* Gap at top — creator only */}
+            {isSessionCreator && (
+              <AddGap
+                index={0}
+                activeIndex={addMenuIndex}
+                onToggle={setAddMenuIndex}
+                onAddSong={handleOpenSheetPicker}
+                onAddMent={handleAddMent}
+              />
+            )}
 
             {draftItems.length === 0 && (
               <p className="text-center text-sm text-neutral-400 py-8">
-                + 버튼으로 곡이나 멘트를 추가하세요
+                {isSessionCreator ? '+ 버튼으로 곡이나 멘트를 추가하세요' : '세트리스트가 없습니다'}
               </p>
             )}
 
             {draftItems.map((item, index) => (
               <React.Fragment key={item.localId}>
-                {/* Item row */}
                 {item.type === 'song' ? (
                   <SongRow
                     item={item}
@@ -301,6 +302,7 @@ export default function SessionDetailPage() {
                     onMoveDown={() => moveDown(index)}
                     onRemove={() => removeItem(item.localId)}
                     onViewSheet={() => handleViewSheet(item.sheetId)}
+                    readOnly={!isSessionCreator}
                   />
                 ) : (
                   <MentRow
@@ -311,17 +313,20 @@ export default function SessionDetailPage() {
                     onMoveDown={() => moveDown(index)}
                     onRemove={() => removeItem(item.localId)}
                     onTextChange={(text) => updateMentText(item.localId, text)}
+                    readOnly={!isSessionCreator}
                   />
                 )}
 
-                {/* Gap after each item */}
-                <AddGap
-                  index={index + 1}
-                  activeIndex={addMenuIndex}
-                  onToggle={setAddMenuIndex}
-                  onAddSong={handleOpenSheetPicker}
-                  onAddMent={handleAddMent}
-                />
+                {/* Gap after each item — creator only */}
+                {isSessionCreator && (
+                  <AddGap
+                    index={index + 1}
+                    activeIndex={addMenuIndex}
+                    onToggle={setAddMenuIndex}
+                    onAddSong={handleOpenSheetPicker}
+                    onAddMent={handleAddMent}
+                  />
+                )}
               </React.Fragment>
             ))}
           </div>
@@ -514,6 +519,7 @@ function SongRow({
   onMoveDown,
   onRemove,
   onViewSheet,
+  readOnly = false,
 }: {
   item: Extract<DraftItem, { type: 'song' }>;
   index: number;
@@ -522,10 +528,14 @@ function SongRow({
   onMoveDown: () => void;
   onRemove: () => void;
   onViewSheet?: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2 px-4 py-3">
-      {/* Order arrows */}
+      {/* Order number (readonly) or arrows (editable) */}
+      {readOnly ? (
+        <span className="w-5 text-center text-xs text-neutral-400 font-mono flex-shrink-0">{index + 1}</span>
+      ) : (
       <div className="flex flex-col gap-0.5 flex-shrink-0">
         <button
           onClick={onMoveUp}
@@ -546,6 +556,7 @@ function SongRow({
           </svg>
         </button>
       </div>
+      )}
 
       {/* Icon */}
       <div className="w-7 h-7 rounded-lg bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0">
@@ -576,15 +587,17 @@ function SongRow({
         </button>
       )}
 
-      {/* Remove */}
-      <button
-        onClick={onRemove}
-        className="p-1.5 rounded-lg text-neutral-300 dark:text-neutral-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
-      >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      {/* Remove — editor only */}
+      {!readOnly && (
+        <button
+          onClick={onRemove}
+          className="p-1.5 rounded-lg text-neutral-300 dark:text-neutral-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -597,6 +610,7 @@ function MentRow({
   onMoveDown,
   onRemove,
   onTextChange,
+  readOnly = false,
 }: {
   item: Extract<DraftItem, { type: 'ment' }>;
   index: number;
@@ -605,10 +619,14 @@ function MentRow({
   onMoveDown: () => void;
   onRemove: () => void;
   onTextChange: (text: string) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex items-start gap-2 px-4 py-3 bg-blue-50/50 dark:bg-blue-900/10">
-      {/* Order arrows */}
+      {/* Order number (readonly) or arrows (editable) */}
+      {readOnly ? (
+        <span className="w-5 text-center text-xs text-blue-300 font-mono flex-shrink-0 mt-1">{index + 1}</span>
+      ) : (
       <div className="flex flex-col gap-0.5 flex-shrink-0 mt-1">
         <button
           onClick={onMoveUp}
@@ -629,6 +647,7 @@ function MentRow({
           </svg>
         </button>
       </div>
+      )}
 
       {/* Icon */}
       <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -637,24 +656,32 @@ function MentRow({
         </svg>
       </div>
 
-      {/* Text input */}
-      <textarea
-        value={item.text}
-        onChange={(e) => onTextChange(e.target.value)}
-        placeholder="멘트 내용을 입력하세요..."
-        rows={2}
-        className="flex-1 text-sm text-neutral-900 dark:text-white bg-transparent placeholder-neutral-400 focus:outline-none resize-none"
-      />
+      {/* Text — editable or readonly */}
+      {readOnly ? (
+        <p className="flex-1 text-sm text-neutral-600 dark:text-neutral-300 py-0.5">
+          {item.text || <span className="text-neutral-400 italic">멘트</span>}
+        </p>
+      ) : (
+        <textarea
+          value={item.text}
+          onChange={(e) => onTextChange(e.target.value)}
+          placeholder="멘트 내용을 입력하세요..."
+          rows={2}
+          className="flex-1 text-sm text-neutral-900 dark:text-white bg-transparent placeholder-neutral-400 focus:outline-none resize-none"
+        />
+      )}
 
-      {/* Remove */}
-      <button
-        onClick={onRemove}
-        className="p-1.5 rounded-lg text-blue-200 dark:text-blue-800 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0 mt-0.5"
-      >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      {/* Remove — editor only */}
+      {!readOnly && (
+        <button
+          onClick={onRemove}
+          className="p-1.5 rounded-lg text-blue-200 dark:text-blue-800 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0 mt-0.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
