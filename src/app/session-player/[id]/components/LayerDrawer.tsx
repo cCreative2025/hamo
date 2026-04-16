@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 
 interface LayerDrawerProps {
   songFormId: string;
+  basePaths?: unknown[];
   open: boolean;
   onClose: () => void;
 }
@@ -15,7 +16,7 @@ function formatTime(iso: string) {
   return d.toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export function LayerDrawer({ songFormId, open, onClose }: LayerDrawerProps) {
+export function LayerDrawer({ songFormId, basePaths = [], open, onClose }: LayerDrawerProps) {
   const { layers, visibleLayers, toggleLayerVisibility } = useSessionPlayerStore();
   const { currentUser } = useAuthStore();
 
@@ -65,13 +66,18 @@ export function LayerDrawer({ songFormId, open, onClose }: LayerDrawerProps) {
 
         {/* Layer list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {/* Base layer (song_form.drawing_data) */}
+          {basePaths.length > 0 && (
+            <div className="px-3 py-2.5 rounded-lg bg-neutral-700 text-white">
+              <p className="text-xs font-medium">원본 레이어</p>
+              <p className="text-[10px] text-neutral-400">{basePaths.length}획 · 항상 표시</p>
+            </div>
+          )}
+
           {relevantLayers.length === 0 ? (
-            <div className="py-6 text-center space-y-2">
-              <p className="text-xs text-neutral-500">저장된 레이어가 없습니다</p>
-              <p className="text-[10px] text-neutral-700 break-all px-2">
-                전체 레이어: {layers.length}개<br />
-                이 송폼 ID: {songFormId.slice(0, 8)}…
-              </p>
+            <div className="py-6 text-center">
+              <p className="text-xs text-neutral-500">세션 레이어 없음</p>
+              <p className="text-[10px] text-neutral-600 mt-1">악보 수정 후 저장하면 여기 표시됩니다</p>
             </div>
           ) : (
             relevantLayers.map((layer) => {

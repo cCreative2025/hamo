@@ -29,12 +29,19 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
     [layers, item.song_form_id]
   );
 
-  // Merge all visible drawing paths
+  // Base layer: song_form.drawing_data (saved outside session)
+  const basePaths = useMemo<DrawPath[]>(
+    () => (item.song_form?.drawing_data as DrawPath[] | undefined) ?? [],
+    [item.song_form]
+  );
+
+  // Merge base + all visible session layers
   const mergedPaths = useMemo<DrawPath[]>(() => {
-    return songFormLayers
+    const sessionPaths = songFormLayers
       .filter((l) => visibleLayers[l.id] !== false)
       .flatMap((l) => (l.drawing_data as DrawPath[]) ?? []);
-  }, [songFormLayers, visibleLayers]);
+    return [...basePaths, ...sessionPaths];
+  }, [basePaths, songFormLayers, visibleLayers]);
 
   useEffect(() => {
     const loadSignedUrl = async () => {
@@ -133,6 +140,7 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
         {item.song_form_id && (
           <LayerDrawer
             songFormId={item.song_form_id}
+            basePaths={basePaths}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
           />
