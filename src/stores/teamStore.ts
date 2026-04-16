@@ -23,6 +23,8 @@ interface TeamStore {
   updateTeam: (teamId: string, name: string, description?: string) => Promise<void>;
   deleteTeam: (teamId: string) => Promise<void>;
   loadTeamMembers: (teamId: string) => Promise<void>;
+  joinTeamByCode: (code: string) => Promise<Team>;
+  regenerateInviteCode: (teamId: string) => Promise<string>;
 }
 
 export const useTeamStore = create<TeamStore>((set) => ({
@@ -97,6 +99,8 @@ export const useTeamStore = create<TeamStore>((set) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
       const { data, error } = await supabase
         .from('teams')
         .insert([
@@ -104,6 +108,7 @@ export const useTeamStore = create<TeamStore>((set) => ({
             name,
             description,
             owner_id: user.id,
+            invite_code: inviteCode,
           },
         ])
         .select()
@@ -200,6 +205,87 @@ export const useTeamStore = create<TeamStore>((set) => ({
         error: error instanceof Error ? error.message : 'Failed to load team members',
         isLoading: false,
       });
+    }
+  },
+
+  joinTeamByCode: async (code: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('invite_code', code.toUpperCase().trim())
+        .single();
+
+      if (teamError || !team) throw new Error('유효하지 않은 초대 코드입니다.');
+
+      // Check if already a member
+      const { data: existing } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('team_id', team.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (existing) {
+        set({ isLoading: false });
+        return team;
+      }
+
+      const { error: joinError } = await supabase.from('team_members').insert([
+        { team_id: team.id, user_id: user.id, role: 'member' },
+      ]);
+
+      if (joinError) throw joinError;
+
+      set((state) => ({
+        teams: [...state.teams, team],
+        isLoading: false,
+      }));
+
+      return team;
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to join team',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  regenerateInviteCode: async (teamId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      const { error } = await supabase
+        .from('teams')
+        .update({ invite_code: newCode, updated_at: new Date().toISOString() })
+        .eq('id', teamId);
+
+      if (error) throw error;
+
+      set((state) => ({
+        teams: state.teams.map((t) =>
+          t.id === teamId ? { ...t, invite_code: newCode } : t
+        ),
+        currentTeam:
+          state.currentTeam?.id === teamId
+            ? { ...state.currentTeam, invite_code: newCode }
+            : state.currentTeam,
+        isLoading: false,
+      }));
+
+      return newCode;
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to regenerate invite code',
+        isLoading: false,
+      });
+      throw error;
     }
   },
 }));
