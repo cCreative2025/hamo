@@ -116,7 +116,19 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     if (titleEditing) titleInputRef.current?.focus();
   }, [titleEditing]);
 
-  // Session save mode dialog
+  // Session layer versioning
+  interface SessionLayerVersion {
+    song_form_id: string;
+    drawing_data: DrawPath[];
+    version_number: number;
+    created_by: string;
+    created_at: string;
+  }
+  const [sessionLayerVersions, setSessionLayerVersions] = useState<SessionLayerVersion[]>([]);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+
+  // Session save mode dialog (creator only)
   const [saveModeDialog, setSaveModeDialog] = useState(false);
 
   // Drawing state
@@ -209,21 +221,24 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     return init;
   });
 
-  // Load session layers — overlay on top of song_form.drawing_data when in session context
+  // Load session layers (all versions) + current user when in session context
   useEffect(() => {
     if (!sessionId) return;
+    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id ?? null));
+
     const formIds = (sheet.song_forms ?? []).map(f => f.id);
     if (!formIds.length) return;
 
     supabase
       .from('session_layers')
-      .select('song_form_id, drawing_data, version_number')
+      .select('song_form_id, drawing_data, version_number, created_by, created_at')
       .eq('session_id', sessionId)
       .in('song_form_id', formIds)
       .order('version_number', { ascending: false })
       .then(({ data }) => {
         if (!data?.length) return;
-        // Take the latest version per form (first row since ordered desc)
+        setSessionLayerVersions(data as SessionLayerVersion[]);
+        // Apply latest version per form to canvas
         const seen = new Set<string>();
         for (const row of data) {
           if (!seen.has(row.song_form_id)) {
@@ -314,17 +329,48 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     setCancelPending(false);
   };
 
+  // Save current drawing as a new session layer version
+  const saveToSessionLayer = async () => {
+    if (!selectedFormId || !sessionId) return;
+    setSaving(true);
+    try {
+      const paths = drawingsByFormRef.current[selectedFormId] ?? [];
+      const formVersions = sessionLayerVersions.filter(v => v.song_form_id === selectedFormId);
+      const nextVersion = (formVersions[0]?.version_number ?? 0) + 1;
+      const { data: { user } } = await supabase.auth.getUser();
+      const newRow: SessionLayerVersion = {
+        song_form_id: selectedFormId,
+        drawing_data: paths,
+        version_number: nextVersion,
+        created_by: user!.id,
+        created_at: new Date().toISOString(),
+      };
+      await supabase.from('session_layers').insert({ ...newRow, session_id: sessionId });
+      setSessionLayerVersions(prev => [newRow, ...prev]);
+      setDrawingsByForm({ ...drawingsByFormRef.current });
+    } finally {
+      setSaving(false);
+    }
+    setDrawingMode(false);
+    setCancelPending(false);
+    resetZoom();
+  };
+
   const handleSaveAndExit = async () => {
     if (selectedFormId) {
       if (sessionId) {
-        // Show save mode dialog (session-only vs overwrite original)
-        setSaveModeDialog(true);
+        if (isSessionCreator) {
+          setSaveModeDialog(true); // 리더는 저장 방식 선택
+          return;
+        }
+        await saveToSessionLayer(); // 참가자는 항상 세션 레이어로
         return;
       }
+      // 세션 외: 원본 직접 저장
       setSaving(true);
       const paths = drawingsByFormRef.current[selectedFormId] ?? [];
       await updateSongForm(selectedFormId, { drawing_data: paths } as never);
-      setDrawingsByForm({ ...drawingsByFormRef.current }); // 탭 hasDrawing 반영
+      setDrawingsByForm({ ...drawingsByFormRef.current });
       setSaving(false);
     }
     setDrawingMode(false);
@@ -335,37 +381,45 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const handleSessionSave = async (mode: 'session-only' | 'overwrite') => {
     if (!selectedFormId) return;
     setSaveModeDialog(false);
-    setSaving(true);
-    try {
-      const paths = drawingsByFormRef.current[selectedFormId] ?? [];
-      if (mode === 'overwrite') {
+    if (mode === 'overwrite') {
+      setSaving(true);
+      try {
+        const paths = drawingsByFormRef.current[selectedFormId] ?? [];
         await updateSongForm(selectedFormId, { drawing_data: paths } as never);
-      } else {
-        // Determine next version number for this (session, song_form) pair
-        const { data: existing } = await supabase
-          .from('session_layers')
-          .select('version_number')
-          .eq('session_id', sessionId!)
-          .eq('song_form_id', selectedFormId)
-          .order('version_number', { ascending: false })
-          .limit(1);
-        const nextVersion = ((existing?.[0]?.version_number) ?? 0) + 1;
-        const { data: { user } } = await supabase.auth.getUser();
-        await supabase.from('session_layers').insert({
-          session_id: sessionId!,
-          song_form_id: selectedFormId,
-          drawing_data: paths,
-          version_number: nextVersion,
-          created_by: user!.id,
-        });
+        setDrawingsByForm({ ...drawingsByFormRef.current });
+      } finally {
+        setSaving(false);
       }
-      setDrawingsByForm({ ...drawingsByFormRef.current });
-    } finally {
-      setSaving(false);
+      setDrawingMode(false);
+      setCancelPending(false);
+      resetZoom();
+    } else {
+      await saveToSessionLayer();
     }
-    setDrawingMode(false);
-    setCancelPending(false);
-    resetZoom();
+  };
+
+  // Restore a past version to canvas (for editing/re-saving)
+  const restoreVersion = (v: SessionLayerVersion) => {
+    if (!v.song_form_id) return;
+    const before = drawingsByFormRef.current[v.song_form_id] ?? [];
+    undoStackByFormRef.current[v.song_form_id] = [
+      ...(undoStackByFormRef.current[v.song_form_id] ?? []),
+      before,
+    ];
+    redoStackByFormRef.current[v.song_form_id] = [];
+    drawingsByFormRef.current[v.song_form_id] = v.drawing_data;
+    syncUndoRedoButtons(v.song_form_id);
+    startTransition(() => setDrawingsByForm({ ...drawingsByFormRef.current }));
+    setShowVersionHistory(false);
+  };
+
+  const formatVersionTime = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    return isToday
+      ? d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
   };
 
   const handleCancelDrawing = () => {
@@ -620,7 +674,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         {/* ── 송폼 흐름 바 ── */}
         {!drawingMode && (
           selectedForm
-            ? <SongFormBar form={selectedForm} onEnterDrawing={(!sessionId || isSessionCreator) ? enterDrawingMode : undefined} />
+            ? <SongFormBar form={selectedForm} onEnterDrawing={enterDrawingMode} />
             : (
               <div className="px-5 py-3 bg-neutral-900 text-white flex-shrink-0 flex items-center gap-2">
                 <span className="text-xs text-neutral-500">송폼이 없습니다.</span>
@@ -729,6 +783,56 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
             </div>
           </div>
         )}
+
+        {/* ── 레이어 히스토리 (세션 컨텍스트) ── */}
+        {!drawingMode && !addingForm && sessionId && selectedFormId && (() => {
+          const formVersions = sessionLayerVersions.filter(v => v.song_form_id === selectedFormId);
+          if (!formVersions.length) return null;
+          return (
+            <div className="border-t border-neutral-200 bg-neutral-50 flex-shrink-0">
+              <button
+                onClick={() => setShowVersionHistory(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  레이어 히스토리
+                  <span className="px-1.5 py-0.5 rounded-full bg-neutral-200 text-neutral-600 text-[10px] font-semibold">{formVersions.length}</span>
+                </span>
+                <svg className={`w-3.5 h-3.5 transition-transform ${showVersionHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showVersionHistory && (
+                <div className="px-5 pb-3 space-y-1 max-h-36 overflow-y-auto">
+                  {formVersions.map((v, i) => {
+                    const isLatest = i === 0;
+                    const isMe = v.created_by === myUserId;
+                    return (
+                      <div key={`${v.version_number}`} className="flex items-center gap-2 py-1">
+                        <span className="text-[10px] font-bold text-neutral-400 w-6 flex-shrink-0">v{v.version_number}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${isMe ? 'bg-primary-100 text-primary-700' : 'bg-neutral-200 text-neutral-600'}`}>
+                          {isMe ? '나' : '팀원'}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 flex-1">{formatVersionTime(v.created_at)}</span>
+                        {isLatest ? (
+                          <span className="text-[10px] text-neutral-400 font-medium">현재</span>
+                        ) : (
+                          <button
+                            onClick={() => restoreVersion(v)}
+                            className="text-[10px] px-2 py-0.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 transition-colors font-medium"
+                          >복원</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── 송폼 선택 탭 ── */}
         {!drawingMode && !addingForm && sheet.song_forms && sheet.song_forms.length > 0 && (
