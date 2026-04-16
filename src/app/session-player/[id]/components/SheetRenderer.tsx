@@ -8,6 +8,7 @@ import { DrawPath } from '@/components/DrawingCanvas';
 import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
 import { SongFormBar } from './SongFormBar';
 import { ReadOnlyCanvas } from './ReadOnlyCanvas';
+import { LayerDrawer } from './LayerDrawer';
 
 interface SheetRendererProps {
   currentIndex: number;
@@ -20,14 +21,20 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
   const [fileType, setFileType] = useState<'pdf' | 'image' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Merge all visible drawing paths for this song_form
+  // Count unique layers for this song_form
+  const songFormLayers = useMemo(
+    () => layers.filter((l) => l.song_form_id === item.song_form_id),
+    [layers, item.song_form_id]
+  );
+
+  // Merge all visible drawing paths
   const mergedPaths = useMemo<DrawPath[]>(() => {
-    if (!item.song_form_id) return [];
-    return layers
-      .filter((l) => l.song_form_id === item.song_form_id && visibleLayers[l.id] !== false)
+    return songFormLayers
+      .filter((l) => visibleLayers[l.id] !== false)
       .flatMap((l) => (l.drawing_data as DrawPath[]) ?? []);
-  }, [layers, visibleLayers, item.song_form_id]);
+  }, [songFormLayers, visibleLayers]);
 
   useEffect(() => {
     const loadSignedUrl = async () => {
@@ -99,9 +106,15 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
   return (
     <div className="w-full h-full flex flex-col bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
       {/* 송폼 진행 바 */}
-      {item.song_form && <SongFormBar form={item.song_form} />}
+      {item.song_form && (
+        <SongFormBar
+          form={item.song_form}
+          layerCount={songFormLayers.length}
+          onLayerOpen={() => setDrawerOpen(true)}
+        />
+      )}
 
-      {/* 악보 */}
+      {/* 악보 + 레이어 드로어 */}
       <div className="flex-1 min-h-0 relative overflow-hidden">
         {fileType === 'pdf' ? (
           <PDFViewer fileUrl={signedUrl} canvasOverlay={layerOverlay} />
@@ -115,6 +128,14 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
             />
             {layerOverlay}
           </>
+        )}
+
+        {item.song_form_id && (
+          <LayerDrawer
+            songFormId={item.song_form_id}
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+          />
         )}
       </div>
     </div>

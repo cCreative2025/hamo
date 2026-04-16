@@ -18,9 +18,11 @@ function getSectionColor(type: string) {
 
 interface SongFormBarProps {
   form: SongForm;
+  layerCount?: number;
+  onLayerOpen?: () => void;
 }
 
-export function SongFormBar({ form }: SongFormBarProps) {
+export function SongFormBar({ form, layerCount = 0, onLayerOpen }: SongFormBarProps) {
   const sections = (form.sections ?? []) as SongSection[];
   const normFlow = normalizeFlow(
     form.flow?.length ? form.flow : sections.map((s) => ({ id: s.id }))
@@ -35,7 +37,9 @@ export function SongFormBar({ form }: SongFormBarProps) {
   if (displayFlow.length === 0) return null;
 
   return (
-    <div className="flex-shrink-0 bg-neutral-900 px-4 py-2 overflow-x-auto">
+    <div className="flex-shrink-0 bg-neutral-900 px-3 py-2 flex items-center gap-2">
+      {/* Scrollable flow */}
+      <div className="flex-1 overflow-x-auto min-w-0">
       <div className="flex items-center gap-1.5 min-w-max">
         <span className="text-[11px] text-neutral-500 font-medium">송폼</span>
         <span className="text-neutral-600 text-xs select-none">|</span>
@@ -60,6 +64,25 @@ export function SongFormBar({ form }: SongFormBarProps) {
           </React.Fragment>
         ))}
       </div>
+      </div>
+
+      {/* Layer toggle button */}
+      {onLayerOpen && (
+        <button
+          onClick={onLayerOpen}
+          className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-300 hover:text-white text-xs font-medium transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
+          </svg>
+          레이어
+          {layerCount > 0 && (
+            <span className="ml-0.5 bg-primary-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+              {layerCount}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }
