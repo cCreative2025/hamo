@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { SessionItem, SheetVersion } from '@/types';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PDFViewer } from '@/components/PDFViewer';
@@ -25,6 +25,41 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showBase, setShowBase] = useState(true);
+
+  // Image contain-fit sizing
+  const imgContainerRef = useRef<HTMLDivElement>(null);
+  const [imgDisplaySize, setImgDisplaySize] = useState<{ w: number; h: number } | null>(null);
+  const [imgNatural, setImgNatural] = useState<{ w: number; h: number } | null>(null);
+  const [containerSize, setContainerSize] = useState<{ w: number; h: number } | null>(null);
+
+  // Track image container size
+  useEffect(() => {
+    const el = imgContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0) setContainerSize({ w: width, h: height });
+    });
+    ro.observe(el);
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) setContainerSize({ w: rect.width, h: rect.height });
+    return () => ro.disconnect();
+  }, [signedUrl]); // re-attach when URL changes (image mounts)
+
+  // Recalculate display size when container or natural dimensions change
+  useEffect(() => {
+    if (!imgNatural || !containerSize) return;
+    const PADDING = 16;
+    const availW = containerSize.w - PADDING * 2;
+    const availH = containerSize.h - PADDING * 2;
+    const scale = Math.min(availW / imgNatural.w, availH / imgNatural.h);
+    setImgDisplaySize({ w: Math.round(imgNatural.w * scale), h: Math.round(imgNatural.h * scale) });
+  }, [imgNatural, containerSize]);
+
+  const onImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
+  }, []);
 
   // Count unique layers for this song_form
   const songFormLayers = useMemo(
@@ -51,6 +86,8 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
       setIsLoading(true);
       setError(null);
       setSignedUrl(null);
+      setImgNatural(null);
+      setImgDisplaySize(null);
 
       try {
         const sheet = item.sheet;
@@ -129,14 +166,23 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
         {fileType === 'pdf' ? (
           <PDFViewer fileUrl={signedUrl} canvasOverlay={layerOverlay} />
         ) : (
-          <div className="w-full h-full flex items-center justify-center overflow-hidden p-2">
-            <div className="relative inline-block">
+          <div
+            ref={imgContainerRef}
+            className="w-full h-full flex items-center justify-center overflow-hidden"
+          >
+            <div
+              className="relative shadow-lg flex-shrink-0"
+              style={imgDisplaySize
+                ? { width: imgDisplaySize.w, height: imgDisplaySize.h }
+                : { maxWidth: 'calc(100% - 32px)', maxHeight: 'calc(100% - 32px)' }
+              }
+            >
               <img
                 key={currentIndex}
                 src={signedUrl}
                 alt="악보"
-                style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
-                className="shadow-lg"
+                onLoad={onImgLoad}
+                style={{ width: '100%', height: '100%', display: 'block', objectFit: 'contain' }}
               />
               {layerOverlay && (
                 <div className="absolute inset-0 pointer-events-none">
