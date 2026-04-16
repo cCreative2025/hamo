@@ -7,7 +7,7 @@ import { BottomNav } from './BottomNav';
 interface MainLayoutProps {
   children: React.ReactNode;
   title?: string;
-  footer?: React.ReactNode; // sticky bottom within body (above BottomNav)
+  footer?: React.ReactNode;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, title, footer }) => {
@@ -34,7 +34,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, title, footer 
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Spacer: fixed BottomNav 높이만큼 공간 확보 (mobile only) */}
+      <div className="h-16 flex-shrink-0 md:hidden" />
+
+      {/* Mobile Bottom Navigation (fixed) */}
       <div className="md:hidden">
         <BottomNav />
       </div>
