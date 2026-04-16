@@ -51,6 +51,7 @@ interface SessionPlayerStore {
   // Actions
   initSession: (sessionId: string, currentUser: User | null, isGuest: boolean) => Promise<void>;
   navigateToSong: (index: number) => Promise<void>;
+  navigateLocal: (index: number) => void;
   subscribeToSession: (sessionId: string) => void;
   unsubscribeFromSession: () => void;
   cleanup: () => void;
@@ -180,8 +181,18 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
   },
 
   /**
+   * Local navigation — all roles, no DB write
+   */
+  navigateLocal: (index: number) => {
+    const { items } = get();
+    if (index >= 0 && index < items.length) {
+      set({ currentIndex: index });
+    }
+  },
+
+  /**
    * Navigate to a specific song index
-   * Only creators can navigate; others follow via Realtime
+   * Only creators can navigate; syncs to DB for broadcast
    */
   navigateToSong: async (index: number) => {
     const state = get();

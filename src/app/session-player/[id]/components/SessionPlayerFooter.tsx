@@ -10,8 +10,7 @@ interface SessionPlayerFooterProps {
 }
 
 export function SessionPlayerFooter({ items, currentIndex }: SessionPlayerFooterProps) {
-  const { userRole, navigateToSong } = useSessionPlayerStore();
-  const canNavigate = userRole === 'creator';
+  const { navigateLocal } = useSessionPlayerStore();
 
   return (
     <div className="flex-shrink-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700 px-3 py-2">
@@ -20,14 +19,11 @@ export function SessionPlayerFooter({ items, currentIndex }: SessionPlayerFooter
           {items.map((item, index) => (
             <button
               key={item.id}
-              onClick={() => canNavigate && navigateToSong(index)}
-              disabled={!canNavigate}
+              onClick={() => navigateLocal(index)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 index === currentIndex
                   ? 'bg-primary-600 text-white'
-                  : canNavigate
-                  ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
-                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400 cursor-default'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
               }`}
             >
               {index + 1}.{' '}

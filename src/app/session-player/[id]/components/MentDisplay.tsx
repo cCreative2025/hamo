@@ -6,9 +6,11 @@ import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
 
 interface MentDisplayProps {
   item: SessionItem;
+  onTouchStart?: React.TouchEventHandler;
+  onTouchEnd?: React.TouchEventHandler;
 }
 
-export function MentDisplay({ item }: MentDisplayProps) {
+export function MentDisplay({ item, onTouchStart, onTouchEnd }: MentDisplayProps) {
   const { userRole, navigateToSong, currentIndex, items } = useSessionPlayerStore();
 
   const canSkip = userRole === 'creator';
@@ -21,7 +23,7 @@ export function MentDisplay({ item }: MentDisplayProps) {
   };
 
   return (
-    <div className="flex-1 min-h-0 bg-gradient-to-br from-primary-600 to-primary-700 dark:from-primary-900 dark:to-primary-950 flex items-center justify-center p-6">
+    <div className="flex-1 min-h-0 bg-gradient-to-br from-primary-600 to-primary-700 dark:from-primary-900 dark:to-primary-950 flex items-center justify-center p-6" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="flex flex-col items-center justify-center text-center max-w-2xl">
         {/* Ment text */}
         <div className="mb-8">
