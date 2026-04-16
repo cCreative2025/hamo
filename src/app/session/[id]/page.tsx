@@ -151,9 +151,9 @@ export default function SessionDetailPage() {
     setSaveError(null);
     try {
       await saveItems(sessionId, selectedTeamId, draftItems);
+      router.push('/sessions');
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : '저장 실패');
-    } finally {
       setSaving(false);
     }
   };
