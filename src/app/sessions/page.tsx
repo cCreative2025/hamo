@@ -52,6 +52,11 @@ export default function SessionsPage() {
     }
   };
 
+  const handlePlayClick = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    router.push(`/session-player/${sessionId}`);
+  };
+
   return (
     <MainLayout title="세션">
       <div className="p-4 max-w-2xl mx-auto">
@@ -89,9 +94,8 @@ export default function SessionsPage() {
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {sessions.map((session) => (
-              <button
+              <div
                 key={session.id}
-                onClick={() => router.push(`/session/${session.id}`)}
                 className="group relative text-left bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
               >
                 {/* Status dot */}
@@ -99,17 +103,34 @@ export default function SessionsPage() {
                   session.status === 'active' ? 'bg-green-500' : 'bg-neutral-300 dark:bg-neutral-600'
                 }`} />
 
-                <p className="font-semibold text-sm text-neutral-900 dark:text-white leading-snug line-clamp-2">
-                  {session.name}
-                </p>
-                <p className="text-xs text-neutral-400 mt-1.5">
-                  {new Date(session.started_at).toLocaleDateString('ko-KR', {
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </p>
+                <button
+                  onClick={() => router.push(`/session/${session.id}`)}
+                  className="block text-left w-full"
+                >
+                  <p className="font-semibold text-sm text-neutral-900 dark:text-white leading-snug line-clamp-2">
+                    {session.name}
+                  </p>
+                  <p className="text-xs text-neutral-400 mt-1.5">
+                    {new Date(session.started_at).toLocaleDateString('ko-KR', {
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </p>
+                </button>
 
-                {/* Delete button (hover) */}
+                {/* Play button (overlay) */}
+                <button
+                  onClick={(e) => handlePlayClick(e, session.id)}
+                  className="absolute bottom-3 right-3 p-2 rounded-lg bg-primary-600 text-white opacity-0 group-hover:opacity-100 hover:bg-primary-700 transition-all"
+                  aria-label="세션 재생"
+                  title="세션 재생"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
+
+                {/* Delete button (top right) */}
                 <button
                   onClick={(e) => handleDelete(e, session.id)}
                   disabled={deletingId === session.id}
@@ -119,7 +140,7 @@ export default function SessionsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
-              </button>
+              </div>
             ))}
           </div>
         )}
