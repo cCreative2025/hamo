@@ -9,13 +9,15 @@ import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
 import { SongFormBar } from './SongFormBar';
 import { ReadOnlyCanvas } from './ReadOnlyCanvas';
 import { LayerDrawer } from './LayerDrawer';
+import { NavOverlay, NavProps } from './SessionPlayerMain';
 
 interface SheetRendererProps {
   currentIndex: number;
   item: SessionItem;
+  navProps?: NavProps;
 }
 
-export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
+export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererProps) {
   const { layers, visibleLayers } = useSessionPlayerStore();
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'pdf' | 'image' | null>(null);
@@ -123,7 +125,7 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
         />
       )}
 
-      {/* 악보 + 레이어 드로어 */}
+      {/* 악보 + 레이어 드로어 + 좌우 nav (SongFormBar 아래에만) */}
       <div className="flex-1 min-h-0 relative overflow-hidden">
         {fileType === 'pdf' ? (
           <PDFViewer fileUrl={signedUrl} canvasOverlay={layerOverlay} />
@@ -154,6 +156,7 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
             onClose={() => setDrawerOpen(false)}
           />
         )}
+        {navProps && <NavOverlay {...navProps} />}
       </div>
     </div>
   );

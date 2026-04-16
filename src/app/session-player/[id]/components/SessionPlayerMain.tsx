@@ -40,11 +40,58 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
     setIsFullscreen(false);
   }, [setIsFullscreen]);
 
-  const navOverlay = (
+  const wrapperProps = {
+    onMouseEnter: () => setShowNav(true),
+    onMouseLeave: () => setShowNav(false),
+    onTouchStart,
+    onTouchEnd,
+  };
+
+  // Nav props passed down — arrows render inside the sheet area only
+  const navProps = { showNav, isFirst, isLast, isFullscreen, onPrev: () => navigateLocal(currentIndex - 1), onNext: () => navigateLocal(currentIndex + 1), onExitFullscreen: exitFullscreen };
+
+  if (currentItem?.type === 'ment') {
+    return (
+      <div className="flex-1 min-h-0 relative" {...wrapperProps}>
+        <MentDisplay item={currentItem} />
+        {/* Ment nav overlay — no SongFormBar so full height is fine */}
+        <NavOverlay {...navProps} />
+      </div>
+    );
+  }
+
+  if (currentItem?.type === 'song') {
+    return (
+      <div className="flex-1 min-h-0" {...wrapperProps}>
+        <SheetRenderer currentIndex={currentIndex} item={currentItem} navProps={navProps} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 relative" {...wrapperProps}>
+      <p className="text-neutral-600 dark:text-neutral-400">악보가 없습니다</p>
+      <NavOverlay {...navProps} />
+    </div>
+  );
+}
+
+// ── Reusable nav overlay ──────────────────────────────────────────────────────
+export interface NavProps {
+  showNav: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  isFullscreen: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  onExitFullscreen: () => void;
+}
+
+export function NavOverlay({ showNav, isFirst, isLast, isFullscreen, onPrev, onNext, onExitFullscreen }: NavProps) {
+  return (
     <>
-      {/* Left arrow */}
       <button
-        onClick={() => navigateLocal(currentIndex - 1)}
+        onClick={onPrev}
         disabled={isFirst}
         className={`absolute left-0 top-0 h-full w-16 flex items-center justify-start pl-2 transition-opacity duration-150 ${
           showNav && !isFirst ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -57,9 +104,8 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
         </div>
       </button>
 
-      {/* Right arrow */}
       <button
-        onClick={() => navigateLocal(currentIndex + 1)}
+        onClick={onNext}
         disabled={isLast}
         className={`absolute right-0 top-0 h-full w-16 flex items-center justify-end pr-2 transition-opacity duration-150 ${
           showNav && !isLast ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -72,10 +118,9 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
         </div>
       </button>
 
-      {/* Fullscreen exit button */}
       {isFullscreen && (
         <button
-          onClick={exitFullscreen}
+          onClick={onExitFullscreen}
           className={`absolute bottom-4 right-4 transition-opacity duration-150 ${
             showNav ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
@@ -88,37 +133,5 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
         </button>
       )}
     </>
-  );
-
-  const wrapperProps = {
-    onMouseEnter: () => setShowNav(true),
-    onMouseLeave: () => setShowNav(false),
-    onTouchStart,
-    onTouchEnd,
-  };
-
-  if (currentItem?.type === 'ment') {
-    return (
-      <div className="flex-1 min-h-0 relative" {...wrapperProps}>
-        <MentDisplay item={currentItem} />
-        {navOverlay}
-      </div>
-    );
-  }
-
-  if (currentItem?.type === 'song') {
-    return (
-      <div className="flex-1 min-h-0 relative" {...wrapperProps}>
-        <SheetRenderer currentIndex={currentIndex} item={currentItem} />
-        {navOverlay}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 relative" {...wrapperProps}>
-      <p className="text-neutral-600 dark:text-neutral-400">악보가 없습니다</p>
-      {navOverlay}
-    </div>
   );
 }
