@@ -7,6 +7,7 @@ import { PDFViewer } from '@/components/PDFViewer';
 import { DrawingCanvas, DrawPath } from '@/components/DrawingCanvas';
 import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSheetStore } from '@/stores/sheetStore';
 import { getSignedUrl } from '@/lib/signedUrlCache';
 import { SongFormBar } from './SongFormBar';
 import { ReadOnlyCanvas } from './ReadOnlyCanvas';
@@ -27,6 +28,7 @@ type DrawTarget = 'base' | 'mine' | null;
 export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererProps) {
   const { layers, visibleLayers, sessionId, session, userRole, updateBaseLayer, upsertMyLayer, updateSongFormData, createSongFormForItem } = useSessionPlayerStore();
   const { currentUser } = useAuthStore();
+  const { loadSheets } = useSheetStore();
   const isCreator = userRole === 'creator';
   const isGuest = userRole === 'guest';
 
@@ -113,7 +115,9 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
       if (item.song_form_id) {
         await updateSongFormData(item.song_form_id, data);
       } else {
-        await createSongFormForItem(item.id, { ...data, sheet_id: item.sheet_id });
+        await createSongFormForItem(item.id, { ...data, sheet_id: item.sheet?.id ?? item.sheet_id });
+        // 악보 페이지에도 즉시 반영
+        loadSheets().catch(() => {});
       }
       setFormEditorOpen(false);
     } catch (e) {
@@ -158,7 +162,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
     // Base layer: song_form required → auto-create if missing
     if (target === 'base' && !songFormId) {
       try {
-        const newForm = await createSongFormForItem(item.id, { name: defaultFormName, sheet_id: item.sheet_id });
+        const newForm = await createSongFormForItem(item.id, { name: defaultFormName, sheet_id: item.sheet?.id ?? item.sheet_id });
         songFormId = newForm.id;
       } catch (e) {
         console.error('[enterDraw] auto-create song_form failed:', e);
