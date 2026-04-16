@@ -35,7 +35,21 @@ const SongFormBar: React.FC<{ form: SongForm; onEnterDrawing?: () => void }> = (
     return section ? { section, repeat: item.repeat ?? 1 } : null;
   }).filter(Boolean) as { section: SongSection; repeat: number }[];
 
-  if (displayFlow.length === 0) return null;
+  if (displayFlow.length === 0) {
+    // 송폼 데이터 없어도 편집 버튼은 항상 표시
+    if (!onEnterDrawing) return null;
+    return (
+      <div className="px-5 py-3 bg-neutral-900 text-white flex-shrink-0 flex items-center justify-between">
+        <span className="text-xs text-neutral-500">송폼 정보 없음</span>
+        <button
+          onClick={onEnterDrawing}
+          className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-neutral-700 text-neutral-300 text-xs font-medium hover:bg-neutral-600 hover:text-white transition-colors"
+        >
+          악보수정
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="px-5 py-3 bg-neutral-900 text-white flex-shrink-0">
@@ -86,11 +100,14 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Local song forms — updated via Realtime when leader edits
+  const [localSongForms, setLocalSongForms] = useState<SongForm[]>(sheet.song_forms ?? []);
+
   // Song form selection
   const [selectedFormId, setSelectedFormId] = useState<string | null>(
     sheet.song_forms?.[0]?.id ?? null
   );
-  const selectedForm = sheet.song_forms?.find(f => f.id === selectedFormId) ?? null;
+  const selectedForm = localSongForms.find(f => f.id === selectedFormId) ?? null;
 
   // 송폼 전환 시 undo/redo 버튼 상태 동기화
   useEffect(() => {
@@ -123,10 +140,39 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     version_number: number;
     created_by: string;
     created_at: string;
+    user?: { name?: string; email?: string };
   }
   const [sessionLayerVersions, setSessionLayerVersions] = useState<SessionLayerVersion[]>([]);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
+
+  // Per-user layer visibility (localStorage, per session+sheet)
+  const layerVisKey = sessionId ? `hamo_layer_vis_${sessionId}_${sheet.id}` : null;
+  const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>(() => {
+    if (!layerVisKey || typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem(layerVisKey) || '{}'); } catch { return {}; }
+  });
+
+  // Other users' latest layers: userId -> formId -> paths
+  const otherUserLayersRef = useRef<Record<string, Record<string, DrawPath[]>>>({});
+  const [otherUserLayers, setOtherUserLayers] = useState<Record<string, Record<string, DrawPath[]>>>({});
+  // Display names for layer owners
+  const [layerOwnerNames, setLayerOwnerNames] = useState<Record<string, string>>({});
+
+  const toggleLayerVisibility = (userId: string) => {
+    setLayerVisibility(prev => {
+      const next = { ...prev, [userId]: !(prev[userId] ?? true) };
+      if (layerVisKey) localStorage.setItem(layerVisKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const getMergedOtherPaths = useCallback((formId: string): DrawPath[] => {
+    return Object.entries(otherUserLayers).flatMap(([userId, forms]) => {
+      if (!(layerVisibility[userId] ?? true)) return [];
+      return forms[formId] ?? [];
+    });
+  }, [otherUserLayers, layerVisibility]);
 
   // Session save mode dialog (creator only)
   const [saveModeDialog, setSaveModeDialog] = useState(false);
@@ -214,40 +260,124 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const drawingsByFormRef = useRef<Record<string, DrawPath[]>>({});
   const [drawingsByForm, setDrawingsByForm] = useState<Record<string, DrawPath[]>>(() => {
     const init: Record<string, DrawPath[]> = {};
-    for (const f of sheet.song_forms ?? []) {
+    for (const f of localSongForms) {
       init[f.id] = (f.drawing_data as DrawPath[] | undefined) ?? [];
     }
     drawingsByFormRef.current = init;
     return init;
   });
 
-  // Load session layers (all versions) + current user when in session context
+  // Load session layers — separate by user (my layer + others' layers)
   useEffect(() => {
     if (!sessionId) return;
-    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id ?? null));
 
-    const formIds = (sheet.song_forms ?? []).map(f => f.id);
-    if (!formIds.length) return;
+    const loadLayers = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setMyUserId(user?.id ?? null);
 
-    supabase
-      .from('session_layers')
-      .select('song_form_id, drawing_data, version_number, created_by, created_at')
-      .eq('session_id', sessionId)
-      .in('song_form_id', formIds)
-      .order('version_number', { ascending: false })
-      .then(({ data }) => {
-        if (!data?.length) return;
-        setSessionLayerVersions(data as SessionLayerVersion[]);
-        // Apply latest version per form to canvas
-        const seen = new Set<string>();
-        for (const row of data) {
-          if (!seen.has(row.song_form_id)) {
-            seen.add(row.song_form_id);
-            drawingsByFormRef.current[row.song_form_id] = (row.drawing_data as DrawPath[]) ?? [];
-          }
+      const formIds = localSongForms.map(f => f.id);
+      if (!formIds.length) return;
+
+      const { data } = await supabase
+        .from('session_layers')
+        .select('song_form_id, drawing_data, version_number, created_by, created_at, user:users(name, email)')
+        .eq('session_id', sessionId)
+        .in('song_form_id', formIds)
+        .order('version_number', { ascending: false });
+
+      if (!data?.length) return;
+      setSessionLayerVersions(data as SessionLayerVersion[]);
+
+      // Latest layer per user per form (data already sorted desc)
+      const latestPerUser: Record<string, Record<string, DrawPath[]>> = {};
+      const names: Record<string, string> = {};
+      for (const row of data) {
+        if (!latestPerUser[row.created_by]) latestPerUser[row.created_by] = {};
+        if (!latestPerUser[row.created_by][row.song_form_id]) {
+          latestPerUser[row.created_by][row.song_form_id] = (row.drawing_data as DrawPath[]) ?? [];
+        }
+        if (!names[row.created_by]) {
+          names[row.created_by] = (row as any).user?.name || (row as any).user?.email?.split('@')[0] || '팀원';
+        }
+      }
+      setLayerOwnerNames(names);
+
+      // Apply my layer to canvas
+      if (user?.id && latestPerUser[user.id]) {
+        for (const [formId, paths] of Object.entries(latestPerUser[user.id])) {
+          drawingsByFormRef.current[formId] = paths;
         }
         setDrawingsByForm({ ...drawingsByFormRef.current });
-      });
+        delete latestPerUser[user.id];
+      }
+
+      // Store others' layers
+      otherUserLayersRef.current = latestPerUser;
+      setOtherUserLayers({ ...latestPerUser });
+    };
+
+    loadLayers();
+  }, [sessionId, sheet.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Realtime: 다른 팀원 레이어 실시간 수신 ──────────────────────────────────
+  useEffect(() => {
+    if (!sessionId || !myUserId) return;
+
+    const channel = supabase
+      .channel(`session-layers-${sessionId}-${sheet.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'session_layers', filter: `session_id=eq.${sessionId}` },
+        (payload) => {
+          const row = payload.new as { song_form_id: string; drawing_data: DrawPath[]; created_by: string };
+          if (row.created_by === myUserId) return; // 내 저장은 무시 (이미 로컬에 있음)
+          otherUserLayersRef.current = {
+            ...otherUserLayersRef.current,
+            [row.created_by]: {
+              ...(otherUserLayersRef.current[row.created_by] ?? {}),
+              [row.song_form_id]: row.drawing_data ?? [],
+            },
+          };
+          setOtherUserLayers({ ...otherUserLayersRef.current });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [sessionId, sheet.id, myUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Realtime: 송폼 변경 실시간 수신 (리더가 수정하면 팀원에게 반영) ──────────
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const channel = supabase
+      .channel(`song-forms-${sheet.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'song_forms', filter: `sheet_id=eq.${sheet.id}` },
+        (payload) => {
+          const updated = payload.new as SongForm;
+          setLocalSongForms(prev =>
+            prev.map(f => f.id === updated.id ? { ...f, ...updated } : f)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'song_forms', filter: `sheet_id=eq.${sheet.id}` },
+        (payload) => {
+          const inserted = payload.new as SongForm;
+          setLocalSongForms(prev => {
+            if (prev.find(f => f.id === inserted.id)) return prev;
+            return [...prev, inserted];
+          });
+          // 처음 폼이 추가되면 자동 선택
+          setSelectedFormId(prev => prev ?? inserted.id);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [sessionId, sheet.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Undo/redo stacks — ref로 관리해서 스트로크마다 리렌더 방지
@@ -348,6 +478,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
       await supabase.from('session_layers').insert({ ...newRow, session_id: sessionId });
       setSessionLayerVersions(prev => [newRow, ...prev]);
       setDrawingsByForm({ ...drawingsByFormRef.current });
+      // No need to update otherUserLayers for self — my layer is in drawingsByForm
     } finally {
       setSaving(false);
     }
@@ -475,13 +606,17 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   const handleAddFormSave = async () => {
     if (!newForm.name.trim()) return;
     setAddingSaving(true);
-    await addSongForm(sheet.id, newForm);
+    const added = await addSongForm(sheet.id, newForm);
+    if (added) {
+      setLocalSongForms(prev => prev.find(f => f.id === added.id) ? prev : [...prev, added]);
+      setSelectedFormId(prev => prev ?? added.id);
+    }
     setNewForm({ name: '', key: '', sections: [], flow: [], memo: '' });
     setAddingForm(false);
     setAddingSaving(false);
   };
 
-  const otherForms = sheet.song_forms?.filter(f => f.id !== selectedFormId) ?? [];
+  const otherForms = localSongForms.filter(f => f.id !== selectedFormId);
 
   return (
     <div
@@ -717,14 +852,29 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                 <PDFViewer
                   fileUrl={fileUrl}
                   canvasOverlay={selectedFormId ? (
-                    <DrawingCanvas
-                      paths={currentPaths}
-                      onPathsChange={handlePathsChange}
-                      activeTool={drawingMode ? activeTool : null}
-                      color={penColor}
-                      strokeWidth={strokeWidth}
-                      onPencilDoubleTap={() => setActiveTool(t => t === 'eraser' ? 'pen' : 'eraser')}
-                    />
+                    <div className="absolute inset-0">
+                      {/* 다른 팀원 레이어 (읽기 전용) */}
+                      {sessionId && Object.keys(otherUserLayers).length > 0 && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          <DrawingCanvas
+                            paths={getMergedOtherPaths(selectedFormId)}
+                            onPathsChange={() => {}}
+                            activeTool={null}
+                            color={penColor}
+                            strokeWidth={strokeWidth}
+                          />
+                        </div>
+                      )}
+                      {/* 내 레이어 (편집 가능) */}
+                      <DrawingCanvas
+                        paths={currentPaths}
+                        onPathsChange={handlePathsChange}
+                        activeTool={drawingMode ? activeTool : null}
+                        color={penColor}
+                        strokeWidth={strokeWidth}
+                        onPencilDoubleTap={() => setActiveTool(t => t === 'eraser' ? 'pen' : 'eraser')}
+                      />
+                    </div>
                   ) : null}
                 />
               </div>
@@ -741,16 +891,30 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                       className="block max-w-full h-auto rounded-xl shadow-soft"
                       style={{ WebkitTouchCallout: 'none', userSelect: 'none', WebkitUserSelect: 'none', pointerEvents: 'none' } as React.CSSProperties}
                     />
-                    {/* 캔버스가 이미지 래퍼 안에 위치 → 이미지와 크기 완전 일치 */}
                     {selectedFormId && (
-                      <DrawingCanvas
-                        paths={currentPaths}
-                        onPathsChange={handlePathsChange}
-                        activeTool={drawingMode ? activeTool : null}
-                        color={penColor}
-                        strokeWidth={strokeWidth}
-                        onPencilDoubleTap={() => setActiveTool(t => t === 'eraser' ? 'pen' : 'eraser')}
-                      />
+                      <>
+                        {/* 다른 팀원 레이어 (읽기 전용) */}
+                        {sessionId && Object.keys(otherUserLayers).length > 0 && (
+                          <div className="absolute inset-0 pointer-events-none">
+                            <DrawingCanvas
+                              paths={getMergedOtherPaths(selectedFormId)}
+                              onPathsChange={() => {}}
+                              activeTool={null}
+                              color={penColor}
+                              strokeWidth={strokeWidth}
+                            />
+                          </div>
+                        )}
+                        {/* 내 레이어 (편집 가능) */}
+                        <DrawingCanvas
+                          paths={currentPaths}
+                          onPathsChange={handlePathsChange}
+                          activeTool={drawingMode ? activeTool : null}
+                          color={penColor}
+                          strokeWidth={strokeWidth}
+                          onPencilDoubleTap={() => setActiveTool(t => t === 'eraser' ? 'pen' : 'eraser')}
+                        />
+                      </>
                     )}
                   </div>
                 </div>
@@ -784,65 +948,63 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
           </div>
         )}
 
-        {/* ── 레이어 히스토리 (세션 컨텍스트) ── */}
-        {!drawingMode && !addingForm && sessionId && selectedFormId && (() => {
-          const formVersions = sessionLayerVersions.filter(v => v.song_form_id === selectedFormId);
-          if (!formVersions.length) return null;
-          return (
-            <div className="border-t border-neutral-200 bg-neutral-50 flex-shrink-0">
-              <button
-                onClick={() => setShowVersionHistory(v => !v)}
-                className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 transition-colors"
-              >
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  레이어 히스토리
-                  <span className="px-1.5 py-0.5 rounded-full bg-neutral-200 text-neutral-600 text-[10px] font-semibold">{formVersions.length}</span>
-                </span>
-                <svg className={`w-3.5 h-3.5 transition-transform ${showVersionHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        {/* ── 팀 레이어 가시성 (세션 컨텍스트) ── */}
+        {!drawingMode && !addingForm && sessionId && selectedFormId && Object.keys(otherUserLayers).length > 0 && (
+          <div className="border-t border-neutral-200 bg-neutral-50 flex-shrink-0">
+            <button
+              onClick={() => setShowVersionHistory(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-medium text-neutral-500 hover:text-neutral-700 transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-              </button>
-              {showVersionHistory && (
-                <div className="px-5 pb-3 space-y-1 max-h-36 overflow-y-auto">
-                  {formVersions.map((v, i) => {
-                    const isLatest = i === 0;
-                    const isMe = v.created_by === myUserId;
-                    return (
-                      <div key={`${v.version_number}`} className="flex items-center gap-2 py-1">
-                        <span className="text-[10px] font-bold text-neutral-400 w-6 flex-shrink-0">v{v.version_number}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${isMe ? 'bg-primary-100 text-primary-700' : 'bg-neutral-200 text-neutral-600'}`}>
-                          {isMe ? '나' : '팀원'}
-                        </span>
-                        <span className="text-[10px] text-neutral-400 flex-1">{formatVersionTime(v.created_at)}</span>
-                        {isLatest ? (
-                          <span className="text-[10px] text-neutral-400 font-medium">현재</span>
-                        ) : (
-                          <button
-                            onClick={() => restoreVersion(v)}
-                            className="text-[10px] px-2 py-0.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 transition-colors font-medium"
-                          >복원</button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+                팀 레이어
+                <span className="px-1.5 py-0.5 rounded-full bg-neutral-200 text-neutral-600 text-[10px] font-semibold">
+                  {Object.keys(otherUserLayers).length}명
+                </span>
+              </span>
+              <svg className={`w-3.5 h-3.5 transition-transform ${showVersionHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showVersionHistory && (
+              <div className="px-5 pb-3 flex flex-wrap gap-2">
+                {Object.entries(otherUserLayers).map(([userId, forms]) => {
+                  const visible = layerVisibility[userId] ?? true;
+                  const hasPaths = (forms[selectedFormId]?.length ?? 0) > 0;
+                  const name = layerOwnerNames[userId] || '팀원';
+                  return (
+                    <button
+                      key={userId}
+                      onClick={() => toggleLayerVisibility(userId)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+                        visible
+                          ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                          : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500'
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${visible ? 'bg-primary-500' : 'bg-neutral-300'}`} />
+                      {name}
+                      {hasPaths && <span className="opacity-60">✏</span>}
+                      {!visible && <span className="opacity-50">숨김</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── 송폼 선택 탭 ── */}
-        {!drawingMode && !addingForm && sheet.song_forms && sheet.song_forms.length > 0 && (
+        {!drawingMode && !addingForm && localSongForms.length > 0 && (
           <div className="border-t border-neutral-200 px-5 py-3 bg-neutral-50 flex-shrink-0">
             <p className="text-xs font-medium text-neutral-400 mb-2">송폼</p>
             <div className="flex gap-2 overflow-x-auto pb-1">
               <button onClick={() => setAddingForm(true)}
                 className="flex-shrink-0 px-3 py-2 rounded-xl border border-dashed border-neutral-300 text-xs font-medium text-neutral-400 hover:border-neutral-500 hover:text-neutral-600 transition-colors"
               >+ 추가</button>
-              {sheet.song_forms.map((form) => {
+              {localSongForms.map((form) => {
                 const isSelected = form.id === selectedFormId;
                 const hasDrawing = (drawingsByForm[form.id]?.length ?? 0) > 0;
                 return (

@@ -161,9 +161,11 @@ export default function SessionDetailPage() {
   const isSessionCreator = currentUser?.id === currentSession?.created_by;
 
   const handleViewSheet = useCallback((sheetId: string) => {
-    const sheet = sheets.find(s => s.id === sheetId);
+    // Try loaded sheets store first, fall back to embedded data in session items
+    const sheet = sheets.find(s => s.id === sheetId)
+      ?? storedItems.find(i => i.sheet_id === sheetId)?.sheet ?? null;
     if (sheet) setViewingSheet(sheet);
-  }, [sheets]);
+  }, [sheets, storedItems]);
 
   const filteredSheets = sheets.filter(
     (s) =>
