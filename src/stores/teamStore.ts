@@ -101,29 +101,35 @@ export const useTeamStore = create<TeamStore>((set) => ({
 
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-      const { data, error } = await supabase
+      // Try inserting with invite_code first; fall back without it if column doesn't exist yet
+      let insertResult = await supabase
         .from('teams')
-        .insert([
-          {
-            name,
-            description,
-            owner_id: user.id,
-            invite_code: inviteCode,
-          },
-        ])
+        .insert([{ name, description, owner_id: user.id, invite_code: inviteCode }])
         .select()
         .single();
+
+      if (insertResult.error?.message?.includes('invite_code')) {
+        insertResult = await supabase
+          .from('teams')
+          .insert([{ name, description, owner_id: user.id }])
+          .select()
+          .single();
+      }
+
+      const { data, error } = insertResult;
 
       if (error) throw error;
 
       // Add current user as owner
-      await supabase.from('team_members').insert([
+      const { error: memberError } = await supabase.from('team_members').insert([
         {
           team_id: data.id,
           user_id: user.id,
           role: 'owner',
         },
       ]);
+
+      if (memberError) throw memberError;
 
       set((state) => ({
         teams: [...state.teams, data],

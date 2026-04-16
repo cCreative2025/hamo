@@ -33,7 +33,8 @@ interface SessionStore {
 
   // Session list actions
   loadSessions: () => Promise<void>;
-  createSession: (name: string) => Promise<Session>;
+  loadSessionsByTeam: (teamId: string) => Promise<Session[]>;
+  createSession: (name: string, teamId?: string) => Promise<Session>;
   deleteSession: (sessionId: string) => Promise<void>;
 
   // Session detail actions
@@ -75,12 +76,26 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
+      // Load sessions the user created OR sessions belonging to their teams
+      const { data: memberRows } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', user.id);
+
+      const teamIds = (memberRows || []).map((r: any) => r.team_id);
+
+      let query = supabase
         .from('sessions')
         .select('*')
-        .eq('created_by', user.id)
         .order('started_at', { ascending: false });
 
+      if (teamIds.length > 0) {
+        query = query.or(`created_by.eq.${user.id},team_id.in.(${teamIds.join(',')})`);
+      } else {
+        query = query.eq('created_by', user.id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       set({ sessions: data || [], isLoading: false });
     } catch (error) {
@@ -88,22 +103,40 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  createSession: async (name: string) => {
+  loadSessionsByTeam: async (teamId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('team_id', teamId)
+        .order('started_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  createSession: async (name: string, teamId?: string) => {
     set({ isLoading: true, error: null });
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const payload: Record<string, unknown> = {
+        name,
+        title: name,
+        created_by: user.id,
+        status: 'active',
+        current_song_index: 0,
+        started_at: new Date().toISOString(),
+      };
+      if (teamId) payload.team_id = teamId;
+
       const { data, error } = await supabase
         .from('sessions')
-        .insert([{
-          name,
-          title: name,   // title NOT NULL 호환 (migration 전 대비)
-          created_by: user.id,
-          status: 'active',
-          current_song_index: 0,
-          started_at: new Date().toISOString(),
-        }])
+        .insert([payload])
         .select()
         .single();
 
