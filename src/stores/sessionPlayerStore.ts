@@ -6,7 +6,8 @@ import { prefetchSignedUrls, clearSignedUrlCache } from '@/lib/signedUrlCache';
 export interface SessionLayer {
   id: string;
   session_id: string;
-  song_form_id: string;
+  session_song_id?: string | null;
+  song_form_id?: string | null;
   created_by: string;
   version_number: number;
   drawing_data: unknown[];
@@ -63,7 +64,7 @@ interface SessionPlayerStore {
   updateSessionTempo: (sessionSongId: string, tempo: number | null) => Promise<void>;
   updateSongFormTempo: (songFormId: string, tempo: number) => Promise<void>;
   updateBaseLayer: (songFormId: string, paths: unknown[]) => Promise<void>;
-  upsertMyLayer: (sessionId: string, songFormId: string, paths: unknown[], isGuest: boolean) => Promise<void>;
+  upsertMyLayer: (sessionId: string, sessionSongId: string, paths: unknown[], isGuest: boolean, songFormId?: string | null) => Promise<void>;
   updateSongFormData: (songFormId: string, data: { name?: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => Promise<void>;
   createSongFormForItem: (sessionSongId: string, data: { name: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => Promise<{ id: string }>;
 }
@@ -388,23 +389,24 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     }));
   },
 
-  /** Upsert user's session layer */
-  upsertMyLayer: async (sessionId: string, songFormId: string, paths: unknown[], isGuest: boolean) => {
+  /** Upsert user's session layer (내 레이어 — 세션에 종속, song_form 불필요) */
+  upsertMyLayer: async (sessionId: string, sessionSongId: string, paths: unknown[], isGuest: boolean, songFormId?: string | null) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { layers } = get();
     const existing = layers.find(
-      (l) => l.song_form_id === songFormId && l.created_by === user.id
+      (l) => l.session_song_id === sessionSongId && l.created_by === user.id
     );
     const nextVersion = (existing?.version_number ?? 0) + 1;
-    const row = {
+    const row: Record<string, unknown> = {
       session_id: sessionId,
-      song_form_id: songFormId,
+      session_song_id: sessionSongId,
       drawing_data: paths,
       version_number: nextVersion,
       created_by: user.id,
       is_guest: isGuest,
     };
+    if (songFormId) row.song_form_id = songFormId;
     const { data: inserted, error } = await supabase
       .from('session_layers')
       .insert(row)
@@ -414,7 +416,8 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     const newLayer: SessionLayer = {
       id: inserted.id,
       session_id: sessionId,
-      song_form_id: songFormId,
+      session_song_id: sessionSongId,
+      song_form_id: songFormId ?? null,
       created_by: user.id,
       version_number: nextVersion,
       drawing_data: paths,
@@ -423,7 +426,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     };
     set((state) => {
       const filtered = state.layers.filter(
-        (l) => !(l.song_form_id === songFormId && l.created_by === user.id)
+        (l) => !(l.session_song_id === sessionSongId && l.created_by === user.id)
       );
       return {
         layers: [newLayer, ...filtered],

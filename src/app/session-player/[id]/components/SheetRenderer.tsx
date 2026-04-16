@@ -150,8 +150,8 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
 
     let songFormId = item.song_form_id ?? null;
 
-    // No song form → auto-create with session name
-    if (!songFormId) {
+    // Base layer: song_form required → auto-create if missing
+    if (target === 'base' && !songFormId) {
       try {
         const newForm = await createSongFormForItem(item.id, { name: defaultFormName });
         songFormId = newForm.id;
@@ -225,8 +225,9 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
       const paths = editPathsRef.current;
       if (drawTarget === 'base' && sfId) {
         await updateBaseLayer(sfId, paths);
-      } else if (drawTarget === 'mine' && sessionId && sfId) {
-        await upsertMyLayer(sessionId, sfId, paths, isGuest);
+      } else if (drawTarget === 'mine' && sessionId) {
+        // 내 레이어는 세션에 종속 — session_song_id(item.id) 기준, song_form은 optional
+        await upsertMyLayer(sessionId, item.id, paths, isGuest, sfId ?? null);
       }
     } finally {
       setSaving(false);
@@ -239,9 +240,10 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   };
 
   // ── Layer data ────────────────────────────────────────────────────────────────
+  // 내 레이어는 session_song_id 기준, 원본레이어 overlay용은 song_form_id 기준
   const songFormLayers = useMemo(
-    () => layers.filter((l) => l.song_form_id === item.song_form_id),
-    [layers, item.song_form_id]
+    () => layers.filter((l) => l.session_song_id === item.id || (item.song_form_id && l.song_form_id === item.song_form_id)),
+    [layers, item.id, item.song_form_id]
   );
 
   const basePaths = useMemo<DrawPath[]>(
@@ -467,6 +469,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
         {/* Layer drawer (일반 모드만) */}
         {!inDrawMode && (
           <LayerDrawer
+            sessionSongId={item.id}
             songFormId={item.song_form_id ?? null}
             basePaths={basePaths}
             showBase={showBase}

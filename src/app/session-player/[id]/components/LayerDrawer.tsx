@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { DrawPath } from '@/components/DrawingCanvas';
 
 interface LayerDrawerProps {
+  sessionSongId: string;
   songFormId: string | null | undefined;
   basePaths?: DrawPath[];
   showBase?: boolean;
@@ -14,8 +15,8 @@ interface LayerDrawerProps {
   onClose: () => void;
   isCreator?: boolean;
   isGuest?: boolean;
-  onEditBase?: () => void;   // leader: edit base layer
-  onEditMine?: () => void;   // all: edit my session layer
+  onEditBase?: () => void;   // creator only: edit base layer
+  onEditMine?: () => void;   // creator only: edit my session layer
 }
 
 function formatTime(iso: string) {
@@ -48,25 +49,27 @@ const EditBtn = ({ onClick }: { onClick: () => void }) => (
 );
 
 export function LayerDrawer({
-  songFormId, basePaths = [], showBase = true, onToggleBase,
+  sessionSongId, songFormId, basePaths = [], showBase = true, onToggleBase,
   open, onClose, isCreator, isGuest, onEditBase, onEditMine,
 }: LayerDrawerProps) {
   const { layers, visibleLayers, toggleLayerVisibility } = useSessionPlayerStore();
   const { currentUser } = useAuthStore();
 
-  // Only layers for this song form, latest version per creator
+  // 내 레이어는 session_song_id 기준, 팀원 레이어도 동일
   const relevantLayers = React.useMemo<SessionLayer[]>(() => {
-    if (!songFormId) return [];
-    const byForm = layers.filter((l) => l.song_form_id === songFormId);
+    const byItem = layers.filter(
+      (l) => l.session_song_id === sessionSongId ||
+        (songFormId && l.song_form_id === songFormId && !l.session_song_id)
+    );
     const latestByUser: Record<string, SessionLayer> = {};
-    for (const l of byForm) {
+    for (const l of byItem) {
       const prev = latestByUser[l.created_by];
       if (!prev || l.version_number > prev.version_number) {
         latestByUser[l.created_by] = l;
       }
     }
     return Object.values(latestByUser);
-  }, [layers, songFormId]);
+  }, [layers, sessionSongId, songFormId]);
 
   const myLayer = relevantLayers.find((l) => l.created_by === currentUser?.id);
   // Guests only see their own layer; non-guests see non-guest others' layers
@@ -138,7 +141,7 @@ export function LayerDrawer({
                 </div>
               </>
             )}
-            {onEditMine && (
+            {isCreator && onEditMine && (
               <EditBtn onClick={() => { onClose(); onEditMine(); }} />
             )}
           </div>
