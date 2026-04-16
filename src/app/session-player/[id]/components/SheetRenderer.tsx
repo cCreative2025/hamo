@@ -94,9 +94,23 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
     );
   }
 
+  const songFormBadge = item.song_form ? (
+    <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
+      {item.song_form.key && (
+        <span className="bg-primary-600 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow">
+          {item.song_form.key}
+        </span>
+      )}
+      <span className="bg-black/50 text-white text-xs px-2 py-0.5 rounded-md shadow">
+        {item.song_form.name}
+      </span>
+    </div>
+  ) : null;
+
   if (fileType === 'pdf') {
     return (
-      <div className="flex-1 min-h-0 bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+      <div className="w-full h-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden relative">
+        {songFormBadge}
         <PDFViewer fileUrl={signedUrl} />
       </div>
     );
@@ -104,7 +118,8 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
 
   // Image type
   return (
-    <div className="flex-1 bg-neutral-100 dark:bg-neutral-800 overflow-auto flex items-center justify-center p-4">
+    <div className="w-full h-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden flex items-center justify-center p-4 relative">
+      {songFormBadge}
       <img
         key={currentIndex}
         src={signedUrl}
