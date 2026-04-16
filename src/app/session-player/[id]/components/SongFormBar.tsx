@@ -35,7 +35,8 @@ export function SongFormBar({
   const { updateSessionTempo, updateSongFormTempo } = useSessionPlayerStore();
   const [editingTempo, setEditingTempo] = useState(false);
   const [tempInput, setTempInput] = useState('');
-  const [askSaveToForm, setAskSaveToForm] = useState<number | null>(null); // pending BPM value
+  const [askSaveToForm, setAskSaveToForm] = useState<number | null>(null);
+  const [saveFormError, setSaveFormError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 세션 override가 있으면 최우선 표시 (사용자가 명시적으로 바꾼 것)
@@ -61,8 +62,13 @@ export function SongFormBar({
 
   const saveToSongForm = async () => {
     if (!form?.id || askSaveToForm == null) return;
-    await updateSongFormTempo(form.id, askSaveToForm);
-    setAskSaveToForm(null);
+    setSaveFormError(null);
+    try {
+      await updateSongFormTempo(form.id, askSaveToForm);
+      setAskSaveToForm(null);
+    } catch (e) {
+      setSaveFormError(e instanceof Error ? e.message : '저장 실패');
+    }
   };
 
   const sections = (form?.sections ?? []) as SongSection[];
@@ -170,9 +176,13 @@ export function SongFormBar({
       {/* 송폼 저장 확인 토스트 */}
       {askSaveToForm != null && (
         <div className="flex-shrink-0 bg-neutral-800 border-t border-neutral-700 px-3 py-2 flex items-center gap-2">
-          <span className="text-xs text-neutral-300 flex-1">
-            송폼에도 ♩{askSaveToForm} 저장할까요?
-          </span>
+          {saveFormError ? (
+            <span className="text-xs text-red-400 flex-1">{saveFormError}</span>
+          ) : (
+            <span className="text-xs text-neutral-300 flex-1">
+              송폼에도 ♩{askSaveToForm} 저장할까요?
+            </span>
+          )}
           <button
             onClick={saveToSongForm}
             className="px-2.5 py-1 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-xs font-medium transition-colors"
@@ -180,7 +190,7 @@ export function SongFormBar({
             저장
           </button>
           <button
-            onClick={() => setAskSaveToForm(null)}
+            onClick={() => { setAskSaveToForm(null); setSaveFormError(null); }}
             className="px-2.5 py-1 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-300 text-xs font-medium transition-colors"
           >
             아니요
