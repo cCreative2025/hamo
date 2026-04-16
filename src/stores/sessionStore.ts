@@ -98,10 +98,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         .from('sessions')
         .insert([{
           name,
+          title: name,   // title NOT NULL 호환 (migration 전 대비)
           created_by: user.id,
           status: 'active',
           current_song_index: 0,
-          tempo: 100,
           started_at: new Date().toISOString(),
         }])
         .select()
