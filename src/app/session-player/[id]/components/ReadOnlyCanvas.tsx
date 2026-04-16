@@ -53,7 +53,7 @@ export function ReadOnlyCanvas({ paths }: ReadOnlyCanvasProps) {
   if (paths.length === 0) return null;
 
   return (
-    <div ref={containerRef} className="absolute inset-0 pointer-events-none">
+    <div ref={containerRef} className="w-full h-full pointer-events-none">
       <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );

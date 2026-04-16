@@ -108,7 +108,9 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
     );
   }
 
-  const layerOverlay = mergedPaths.length > 0 ? <ReadOnlyCanvas paths={mergedPaths} /> : null;
+  const layerOverlay = mergedPaths.length > 0 ? (
+    <ReadOnlyCanvas paths={mergedPaths} />
+  ) : null;
 
   return (
     <div className="w-full h-full flex flex-col bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
@@ -126,15 +128,22 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
         {fileType === 'pdf' ? (
           <PDFViewer fileUrl={signedUrl} canvasOverlay={layerOverlay} />
         ) : (
-          <>
-            <img
-              key={currentIndex}
-              src={signedUrl}
-              alt="악보"
-              className="w-full h-full object-contain"
-            />
-            {layerOverlay}
-          </>
+          <div className="w-full h-full flex items-center justify-center overflow-hidden p-2">
+            <div className="relative inline-block">
+              <img
+                key={currentIndex}
+                src={signedUrl}
+                alt="악보"
+                style={{ maxWidth: '100%', maxHeight: '100%', display: 'block' }}
+                className="shadow-lg"
+              />
+              {layerOverlay && (
+                <div className="absolute inset-0 pointer-events-none">
+                  {layerOverlay}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {item.song_form_id && (
