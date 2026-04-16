@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/MainLayout';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { Button } from '@/components/Button';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,15 +58,14 @@ export default function SessionsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-neutral-900 dark:text-white">세션</h1>
-          <button
+          <Button
+            size="sm"
+            variant="primary"
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+            icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
             새 세션
-          </button>
+          </Button>
         </div>
 
         {/* List */}
@@ -158,13 +158,15 @@ export default function SessionsPage() {
             </div>
 
             <div className="px-5 py-4">
-              <button
+              <Button
+                variant="primary"
+                fullWidth
+                disabled={!name.trim()}
+                isLoading={creating}
                 onClick={handleCreate}
-                disabled={!name.trim() || creating}
-                className="w-full py-3 rounded-2xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 transition-colors"
               >
-                {creating ? '생성 중...' : '만들기'}
-              </button>
+                만들기
+              </Button>
             </div>
           </div>
         </div>
