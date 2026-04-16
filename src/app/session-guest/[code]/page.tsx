@@ -1,140 +1,149 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Stage, Layer, Rect } from 'react-konva';
-import { useAuthStore } from '@/stores/authStore';
-import { useDrawingStore } from '@/stores/drawingStore';
+import { supabase } from '@/lib/supabase';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { Button } from '@/components/Button';
+
+interface SessionInfo {
+  name: string;
+  status: string;
+}
+
+interface SetlistItem {
+  id: string;
+  type: 'song' | 'ment';
+  sequence_order: number;
+  ment_text?: string;
+  sheet?: { title: string; artist?: string };
+  song_form?: { name: string; key?: string };
+}
 
 export default function GuestSessionPage() {
   const params = useParams();
   const code = params.code as string;
 
-  const { currentUser } = useAuthStore();
-  const { localShapes: shapes } = useDrawingStore();
-
-  const stageRef = useRef(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [sessionData, setSessionData] = useState<any>(null);
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [items, setItems] = useState<SetlistItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadGuestSession = async () => {
+    const load = async () => {
       try {
-        setIsLoading(true);
-        // TODO: Load guest session data from Supabase
-        // const { data } = await supabase
-        //   .from('guest_sessions')
-        //   .select('*, sessions(*)')
-        //   .eq('code', code)
-        //   .single();
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('sessions')
+          .select('name, status')
+          .eq('id', code)
+          .single();
 
-        setSessionData({
-          title: 'Guest Session',
-          currentSong: 'Sample Song',
-          participants: [],
-        });
-      } catch (error) {
-        console.error('Failed to load guest session:', error);
+        if (sessionError || !sessionData) {
+          setError('세션을 찾을 수 없습니다.');
+          return;
+        }
+
+        setSession(sessionData);
+
+        const { data: itemsData } = await supabase
+          .from('session_songs')
+          .select('id, type, sequence_order, ment_text, sheet:sheets(title, artist), song_form:song_forms(name, key)')
+          .eq('session_id', code)
+          .order('sequence_order', { ascending: true });
+
+        setItems((itemsData as unknown as SetlistItem[]) ?? []);
+      } catch {
+        setError('불러오기 실패');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    loadGuestSession();
+    if (code) load();
   }, [code]);
 
-  if (isLoading || !sessionData) {
+  if (loading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-neutral-900">
-        <LoadingSpinner text="세션 로딩 중..." />
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <LoadingSpinner text="세션 불러오는 중..." />
+      </div>
+    );
+  }
+
+  if (error || !session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
+        <div className="text-center space-y-2">
+          <p className="text-neutral-500 text-sm">{error ?? '세션을 찾을 수 없습니다.'}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-900">
+    <div className="min-h-screen bg-neutral-50">
       {/* Header */}
-      <div className="bg-neutral-800 border-b border-neutral-700 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-white font-bold text-xl">{sessionData.title}</h1>
-            <p className="text-neutral-400 text-sm">Guest Mode (읽기 전용)</p>
-          </div>
+      <div className="bg-white border-b border-neutral-200 px-5 py-4 sticky top-0">
+        <div className="max-w-lg mx-auto flex items-center gap-3">
+          <span className="text-lg font-bold text-neutral-900">🎵 Hamo</span>
+          <span className="text-neutral-300">|</span>
+          <span className="text-sm text-neutral-600 truncate">{session.name}</span>
+          <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
+            session.status === 'active'
+              ? 'bg-green-100 text-green-700'
+              : 'bg-neutral-100 text-neutral-500'
+          }`}>
+            {session.status === 'active' ? '진행 중' : '완료'}
+          </span>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden flex">
-        {/* Sheet Display */}
-        <div className="flex-1 bg-neutral-900 relative flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-white text-xl font-semibold mb-2">
-              {sessionData.currentSong}
-            </p>
-            <p className="text-neutral-400 text-sm">
-              악보 렌더링 (읽기 전용 모드)
-            </p>
-          </div>
+      {/* Setlist */}
+      <div className="max-w-lg mx-auto p-4 space-y-2">
+        <p className="text-xs font-semibold text-neutral-400 px-1 mb-3">
+          세트리스트 · {items.length}개
+        </p>
 
-          {/* Konva Canvas Overlay (Read-only) */}
-          <div className="absolute inset-0 pointer-events-none">
-            <Stage
-              ref={stageRef}
-              width={typeof window !== 'undefined' ? window.innerWidth * 0.7 : 800}
-              height={typeof window !== 'undefined' ? window.innerHeight - 200 : 600}
-            >
-              <Layer>
-                {shapes.map((shape, idx) => {
-                  const d = shape.shape_data as any;
-                  return (
-                    <Rect
-                      key={idx}
-                      x={d.x ?? 0}
-                      y={d.y ?? 0}
-                      width={d.width ?? 0}
-                      height={d.height ?? 0}
-                      fill={d.color ?? '#000000'}
-                    />
-                  );
-                })}
-              </Layer>
-            </Stage>
-          </div>
-        </div>
+        {items.length === 0 && (
+          <p className="text-center text-sm text-neutral-400 py-12">세트리스트가 비어있습니다.</p>
+        )}
 
-        {/* Participants Sidebar */}
-        <div className="w-80 bg-neutral-800 border-l border-neutral-700 flex flex-col">
-          <div className="p-4 border-b border-neutral-700">
-            <h2 className="text-white font-semibold mb-2">참여자</h2>
-            <p className="text-xs text-neutral-400">
-              {sessionData.participants.length}명 참여 중
-            </p>
-          </div>
-
-          <div className="flex-1 overflow-auto p-4 space-y-2">
-            {sessionData.participants.map((participant: any, idx: number) => (
-              <div
-                key={idx}
-                className="flex items-center gap-3 p-2 rounded bg-neutral-700"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">
-                    {participant.name?.charAt(0).toUpperCase() || '?'}
-                  </span>
-                </div>
-                <p className="text-white text-sm font-medium">{participant.name}</p>
+        {items.map((item, i) =>
+          item.type === 'song' ? (
+            <div key={item.id} className="bg-white rounded-2xl border border-neutral-200 px-4 py-3 flex items-center gap-3">
+              <span className="text-xs font-bold text-neutral-300 w-5">{i + 1}</span>
+              <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Info Footer */}
-      <div className="bg-neutral-800 border-t border-neutral-700 p-4 text-center text-neutral-400 text-sm">
-        <p>Guest 모드에서는 악보 편집이 불가능합니다. (읽기 전용)</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-neutral-900 truncate">
+                  {item.sheet?.title ?? '(악보 없음)'}
+                </p>
+                <p className="text-xs text-neutral-400 truncate">
+                  {[item.song_form?.name, item.sheet?.artist].filter(Boolean).join(' · ') || '송폼 없음'}
+                </p>
+              </div>
+              {item.song_form?.key && (
+                <span className="text-xs px-2 py-0.5 rounded-md bg-primary-100 text-primary-700 font-semibold flex-shrink-0">
+                  {item.song_form.key}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div key={item.id} className="bg-blue-50 rounded-2xl border border-blue-100 px-4 py-3 flex items-start gap-3">
+              <span className="text-xs font-bold text-blue-200 w-5 mt-0.5">{i + 1}</span>
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <p className="text-sm text-blue-700 flex-1 leading-relaxed">
+                {item.ment_text || '(멘트 없음)'}
+              </p>
+            </div>
+          )
+        )}
       </div>
     </div>
   );
