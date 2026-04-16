@@ -137,6 +137,21 @@ export interface SessionSong {
   created_at: string;
 }
 
+export interface SessionItem {
+  id: string;
+  session_id: string;
+  type: 'song' | 'ment';
+  sequence_order: number;
+  // song fields
+  sheet_id?: string;
+  song_form_id?: string;
+  sheet?: Sheet;
+  song_form?: SongForm;
+  // ment fields
+  ment_text?: string;
+  created_at: string;
+}
+
 export interface Participant {
   id: string;
   session_id: string;

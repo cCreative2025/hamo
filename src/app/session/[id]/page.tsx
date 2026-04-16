@@ -1,329 +1,615 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { Stage, Layer, Rect, Text } from 'react-konva';
-import { useSessionStore } from '@/stores/sessionStore';
-import { useParticipantStore } from '@/stores/participantStore';
-import { useDrawingStore } from '@/stores/drawingStore';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { MainLayout } from '@/components/MainLayout';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { useSessionStore, DraftItem } from '@/stores/sessionStore';
+import { useSheetStore } from '@/stores/sheetStore';
+import { useTeamStore } from '@/stores/teamStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/Button';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { Sheet, SongForm } from '@/types';
 
-export default function SessionPlayerPage() {
+export default function SessionDetailPage() {
   useAuth(true);
 
   const params = useParams();
+  const router = useRouter();
   const sessionId = params.id as string;
 
   const { currentUser } = useAuthStore();
-  const {
-    currentSession,
-    setlist,
-    currentSongIndex,
-    tempo: currentTempo,
-    loadSession,
-    goToNextSong,
-    goToPreviousSong,
-    updateTempo,
-    endSession,
-  } = useSessionStore();
+  const { currentSession, items: storedItems, isLoading, loadSessionWithItems, saveItems } = useSessionStore();
+  const { sheets, loadSheets } = useSheetStore();
+  const { teams, loadTeams } = useTeamStore();
 
-  const { participants, joinSession, leaveSession } = useParticipantStore();
-  const { localShapes: shapes, undo, redo, clearLocalShapes } = useDrawingStore();
+  // Draft state
+  const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const stageRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [showDrawingTools, setShowDrawingTools] = useState(false);
-  const [selectedColor, setSelectedColor] = useState('#000000');
-  const [selectedTool, setSelectedTool] = useState<'pen' | 'eraser'>('pen');
+  // Add menu: which gap index to insert at (null = closed)
+  const [addMenuIndex, setAddMenuIndex] = useState<number | null>(null);
+
+  // Sheet picker
+  const [sheetPickerIndex, setSheetPickerIndex] = useState<number | null>(null);
+  const [sheetSearch, setSheetSearch] = useState('');
+  const [pickerSheet, setPickerSheet] = useState<Sheet | null>(null);
 
   useEffect(() => {
-    loadSession(sessionId);
-  }, [sessionId, loadSession]);
-
-  useEffect(() => {
-    if (currentSession && currentUser) {
-      joinSession(sessionId);
+    if (currentUser) {
+      loadSessionWithItems(sessionId);
+      loadSheets(undefined, currentUser.id);
+      loadTeams();
     }
+  }, [currentUser, sessionId, loadSessionWithItems, loadSheets, loadTeams]);
 
-    return () => {
-      if (currentUser) {
-        leaveSession(sessionId);
-      }
-    };
-  }, [currentSession, currentUser, sessionId, joinSession, leaveSession]);
+  useEffect(() => {
+    if (currentSession) {
+      setSelectedTeamId(currentSession.team_id || '');
+    }
+  }, [currentSession]);
 
-  if (!currentSession) {
+  useEffect(() => {
+    setDraftItems(
+      storedItems.map((item) =>
+        item.type === 'song'
+          ? {
+              localId: item.id,
+              type: 'song',
+              sheetId: item.sheet_id!,
+              songFormId: item.song_form_id,
+              sheetTitle: item.sheet?.title || '(악보 없음)',
+              songFormName: item.song_form?.name,
+              artist: item.sheet?.artist,
+            }
+          : { localId: item.id, type: 'ment', text: item.ment_text || '' }
+      )
+    );
+  }, [storedItems]);
+
+  // Guest link
+  const guestLink = typeof window !== 'undefined' ? `${window.location.origin}/join/${sessionId}` : '';
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(guestLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback: select text in input
+    }
+  };
+
+  // Item manipulation
+  const insertItem = (index: number, item: DraftItem) => {
+    setDraftItems((prev) => [...prev.slice(0, index), item, ...prev.slice(index)]);
+  };
+
+  const removeItem = (localId: string) => {
+    setDraftItems((prev) => prev.filter((i) => i.localId !== localId));
+  };
+
+  const moveUp = (index: number) => {
+    if (index === 0) return;
+    setDraftItems((prev) => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  };
+
+  const moveDown = (index: number) => {
+    setDraftItems((prev) => {
+      if (index >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      return next;
+    });
+  };
+
+  const updateMentText = (localId: string, text: string) => {
+    setDraftItems((prev) =>
+      prev.map((item) => (item.localId === localId && item.type === 'ment' ? { ...item, text } : item))
+    );
+  };
+
+  // Add handlers
+  const handleAddMent = (index: number) => {
+    insertItem(index, { localId: `new_${Date.now()}`, type: 'ment', text: '' });
+    setAddMenuIndex(null);
+  };
+
+  const handleOpenSheetPicker = (index: number) => {
+    setSheetPickerIndex(index);
+    setPickerSheet(null);
+    setSheetSearch('');
+    setAddMenuIndex(null);
+  };
+
+  const handleSelectSong = (sheet: Sheet, songForm?: SongForm) => {
+    if (sheetPickerIndex === null) return;
+    insertItem(sheetPickerIndex, {
+      localId: `new_${Date.now()}`,
+      type: 'song',
+      sheetId: sheet.id,
+      songFormId: songForm?.id,
+      sheetTitle: sheet.title,
+      songFormName: songForm?.name,
+      artist: sheet.artist,
+    });
+    setSheetPickerIndex(null);
+    setPickerSheet(null);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await saveItems(sessionId, selectedTeamId, draftItems);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredSheets = sheets.filter(
+    (s) =>
+      s.title.toLowerCase().includes(sheetSearch.toLowerCase()) ||
+      (s.artist ?? '').toLowerCase().includes(sheetSearch.toLowerCase())
+  );
+
+  if (isLoading && !currentSession) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-neutral-900">
-        <LoadingSpinner text="세션 로딩 중..." />
+      <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-neutral-900">
+        <LoadingSpinner text="세션 불러오는 중..." />
       </div>
     );
   }
 
-  const currentSong = setlist[currentSongIndex];
+  if (!currentSession) return null;
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-900">
-      {/* Header */}
-      <div className="bg-neutral-800 border-b border-neutral-700 p-4">
-        <div className="flex items-center justify-between max-w-full">
-          <div>
-            <h1 className="text-white font-bold text-xl">{currentSession.title}</h1>
-            {currentSong && (
-              <p className="text-neutral-400 text-sm">
-                {currentSong.title} - {currentSong.artist}
+    <MainLayout title="세션">
+      <div className="p-4 max-w-2xl mx-auto pb-28">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => router.push('/sessions')}
+            className="p-1.5 rounded-lg text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="text-xl font-bold text-neutral-900 dark:text-white flex-1 truncate">
+            {currentSession.name}
+          </h1>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+            currentSession.status === 'active'
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+          }`}>
+            {currentSession.status === 'active' ? '진행 중' : '완료'}
+          </span>
+        </div>
+
+        {/* Guest Link */}
+        <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 mb-4">
+          <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">객원 공유 링크</p>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={guestLink}
+              className="flex-1 text-xs text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-xl px-3 py-2 focus:outline-none truncate"
+            />
+            <button
+              onClick={copyLink}
+              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                copied
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
+              }`}
+            >
+              {copied ? '복사됨' : '복사'}
+            </button>
+          </div>
+        </section>
+
+        {/* Team Selection */}
+        {teams.length > 0 && (
+          <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 mb-4">
+            <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">공유할 팀</p>
+            <select
+              value={selectedTeamId}
+              onChange={(e) => setSelectedTeamId(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-600 text-sm focus:outline-none focus:border-neutral-400 bg-neutral-50 dark:bg-neutral-700 dark:text-white"
+            >
+              <option value="">팀 없음 (개인)</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+          </section>
+        )}
+
+        {/* Setlist */}
+        <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden mb-4">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 dark:border-neutral-700">
+            <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+              세트리스트
+              {draftItems.length > 0 && (
+                <span className="ml-1.5 text-neutral-400 font-normal">{draftItems.length}개</span>
+              )}
+            </p>
+          </div>
+
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-700/50">
+            {/* Gap at top */}
+            <AddGap
+              index={0}
+              activeIndex={addMenuIndex}
+              onToggle={setAddMenuIndex}
+              onAddSong={handleOpenSheetPicker}
+              onAddMent={handleAddMent}
+            />
+
+            {draftItems.length === 0 && (
+              <p className="text-center text-sm text-neutral-400 py-8">
+                + 버튼으로 곡이나 멘트를 추가하세요
               </p>
             )}
+
+            {draftItems.map((item, index) => (
+              <React.Fragment key={item.localId}>
+                {/* Item row */}
+                {item.type === 'song' ? (
+                  <SongRow
+                    item={item}
+                    index={index}
+                    total={draftItems.length}
+                    onMoveUp={() => moveUp(index)}
+                    onMoveDown={() => moveDown(index)}
+                    onRemove={() => removeItem(item.localId)}
+                  />
+                ) : (
+                  <MentRow
+                    item={item}
+                    index={index}
+                    total={draftItems.length}
+                    onMoveUp={() => moveUp(index)}
+                    onMoveDown={() => moveDown(index)}
+                    onRemove={() => removeItem(item.localId)}
+                    onTextChange={(text) => updateMentText(item.localId, text)}
+                  />
+                )}
+
+                {/* Gap after each item */}
+                <AddGap
+                  index={index + 1}
+                  activeIndex={addMenuIndex}
+                  onToggle={setAddMenuIndex}
+                  onAddSong={handleOpenSheetPicker}
+                  onAddMent={handleAddMent}
+                />
+              </React.Fragment>
+            ))}
           </div>
+        </section>
+      </div>
 
-          {/* Tempo Display */}
-          <div className="flex items-center gap-4">
-            <div className="text-white text-center">
-              <p className="text-xs text-neutral-400">현재 템포</p>
-              <p className="text-2xl font-bold">{currentTempo} BPM</p>
-            </div>
-
-            {/* Tempo Controls */}
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => updateTempo(Math.max(40, currentTempo - 5))}
-              >
-                -5
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => updateTempo(Math.min(240, currentTempo + 5))}
-              >
-                +5
-              </Button>
-            </div>
-          </div>
-
-          {/* End Session */}
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={async () => {
-              await endSession(sessionId);
-              // 세션 목록으로 이동
-            }}
+      {/* Sticky Save */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm border-t border-neutral-200 dark:border-neutral-700">
+        <div className="max-w-2xl mx-auto">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-3 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-semibold hover:opacity-80 disabled:opacity-40 transition-opacity"
           >
-            세션 종료
-          </Button>
+            {saving ? '저장 중...' : '저장'}
+          </button>
         </div>
       </div>
 
-      {/* Main Player */}
-      <div className="flex-1 overflow-hidden flex">
-        {/* Sheet Display (Canvas) */}
-        <div className="flex-1 bg-neutral-900 relative">
-          {/* Placeholder: PDF/Image Viewer */}
-          <div className="w-full h-full flex items-center justify-center bg-neutral-800">
-            {currentSong ? (
-              <div className="text-center">
-                <p className="text-white text-xl font-semibold mb-2">{currentSong.title}</p>
-                <p className="text-neutral-400 text-sm">
-                  악보 렌더링 (Step 11: PDF.js 구현 예정)
-                </p>
+      {/* Sheet Picker Modal */}
+      {sheetPickerIndex !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) { setSheetPickerIndex(null); setPickerSheet(null); } }}
+        >
+          <div className="bg-white dark:bg-neutral-900 w-full max-w-lg rounded-t-3xl max-h-[85vh] flex flex-col">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                {pickerSheet && (
+                  <button
+                    onClick={() => setPickerSheet(null)}
+                    className="p-1 rounded-lg text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                )}
+                <h2 className="text-base font-bold text-neutral-900 dark:text-white">
+                  {pickerSheet ? pickerSheet.title : '곡 선택'}
+                </h2>
               </div>
-            ) : (
-              <p className="text-neutral-500">선택된 곡이 없습니다</p>
-            )}
-          </div>
+              <button
+                onClick={() => { setSheetPickerIndex(null); setPickerSheet(null); }}
+                className="p-1.5 rounded-lg text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-          {/* Konva Canvas Overlay */}
-          <div className="absolute inset-0 pointer-events-none">
-            <Stage
-              ref={stageRef}
-              width={typeof window !== 'undefined' ? window.innerWidth * 0.7 : 800}
-              height={typeof window !== 'undefined' ? window.innerHeight - 200 : 600}
-            >
-              <Layer>
-                {/* Render shapes from store */}
-                {shapes.map((shape, idx) => {
-                  const d = shape.shape_data as any;
-                  return (
-                    <Rect
-                      key={idx}
-                      x={d.x ?? 0}
-                      y={d.y ?? 0}
-                      width={d.width ?? 0}
-                      height={d.height ?? 0}
-                      fill={d.color ?? '#000000'}
-                    />
-                  );
-                })}
-              </Layer>
-            </Stage>
-          </div>
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="w-80 bg-neutral-800 border-l border-neutral-700 flex flex-col overflow-hidden">
-          {/* Tabs */}
-          <div className="flex gap-0 border-b border-neutral-700">
-            <button
-              onClick={() => setShowDrawingTools(!showDrawingTools)}
-              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                showDrawingTools
-                  ? 'text-primary-400 border-b-2 border-primary-400'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              도구
-            </button>
-            <button
-              className="flex-1 px-4 py-3 text-sm font-medium text-neutral-400 hover:text-white transition-colors"
-            >
-              참여자
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="flex-1 overflow-auto">
-            {showDrawingTools ? (
-              // Drawing Tools
-              <div className="p-4 space-y-4">
-                <div>
-                  <p className="text-neutral-300 text-sm font-medium mb-2">도구</p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={selectedTool === 'pen' ? 'primary' : 'secondary'}
-                      onClick={() => setSelectedTool('pen')}
-                      fullWidth
-                    >
-                      펜
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={selectedTool === 'eraser' ? 'primary' : 'secondary'}
-                      onClick={() => setSelectedTool('eraser')}
-                      fullWidth
-                    >
-                      지우개
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-neutral-300 text-sm font-medium mb-2">색상</p>
+            {!pickerSheet ? (
+              /* Sheet list */
+              <>
+                <div className="px-5 pb-3 flex-shrink-0">
                   <input
-                    type="color"
-                    value={selectedColor}
-                    onChange={(e) => setSelectedColor(e.target.value)}
-                    className="w-full h-10 rounded cursor-pointer"
+                    type="text"
+                    value={sheetSearch}
+                    onChange={(e) => setSheetSearch(e.target.value)}
+                    placeholder="악보 검색..."
+                    autoFocus
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-sm focus:outline-none focus:border-neutral-400 bg-neutral-50 dark:bg-neutral-800 dark:text-white"
                   />
                 </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={undo}
-                    fullWidth
-                  >
-                    실행 취소
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={redo}
-                    fullWidth
-                  >
-                    다시 실행
-                  </Button>
+                <div className="overflow-y-auto flex-1 px-3 pb-5 space-y-1">
+                  {filteredSheets.length === 0 ? (
+                    <p className="text-center text-sm text-neutral-400 py-8">악보가 없습니다</p>
+                  ) : (
+                    filteredSheets.map((sheet) => (
+                      <button
+                        key={sheet.id}
+                        onClick={() => {
+                          const hasForms = (sheet.song_forms?.length ?? 0) > 0;
+                          if (hasForms) {
+                            setPickerSheet(sheet);
+                          } else {
+                            handleSelectSong(sheet);
+                          }
+                        }}
+                        className="w-full text-left px-4 py-3 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                      >
+                        <p className="text-sm font-medium text-neutral-900 dark:text-white">{sheet.title}</p>
+                        {sheet.artist && (
+                          <p className="text-xs text-neutral-400 mt-0.5">{sheet.artist}</p>
+                        )}
+                      </button>
+                    ))
+                  )}
                 </div>
-
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={clearLocalShapes}
-                  fullWidth
-                >
-                  전체 삭제
-                </Button>
-              </div>
+              </>
             ) : (
-              // Participants List
-              <div className="p-4 space-y-2">
-                {participants.map((participant) => (
-                  <div
-                    key={participant.id}
-                    className="flex items-center gap-3 p-2 rounded bg-neutral-700"
+              /* Song form list for selected sheet */
+              <div className="overflow-y-auto flex-1 px-3 pb-5 space-y-1">
+                {/* Option: no specific song form */}
+                <button
+                  onClick={() => handleSelectSong(pickerSheet)}
+                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  <p className="text-sm font-medium text-neutral-900 dark:text-white">기본 (폼 없음)</p>
+                  <p className="text-xs text-neutral-400 mt-0.5">송폼 없이 악보만 추가</p>
+                </button>
+                {(pickerSheet.song_forms ?? []).map((form: SongForm) => (
+                  <button
+                    key={form.id}
+                    onClick={() => handleSelectSong(pickerSheet, form)}
+                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">
-                        {participant.user_id?.charAt(0).toUpperCase() || '?'}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-white text-sm font-medium">
-                        {participant.guest_name || participant.user?.name || 'Guest'}
-                      </p>
-                      <p className="text-neutral-400 text-xs">
-                        {participant.connection_status === 'connected' ? '온라인' : '오프라인'}
-                      </p>
-                    </div>
-                    <div
-                      className={`w-3 h-3 rounded-full ${
-                        participant.connection_status === 'connected'
-                          ? 'bg-green-500'
-                          : 'bg-neutral-600'
-                      }`}
-                    />
-                  </div>
+                    <p className="text-sm font-medium text-neutral-900 dark:text-white">{form.name}</p>
+                    {form.key && (
+                      <p className="text-xs text-neutral-400 mt-0.5">Key: {form.key}</p>
+                    )}
+                  </button>
                 ))}
               </div>
             )}
           </div>
         </div>
-      </div>
+      )}
+    </MainLayout>
+  );
+}
 
-      {/* Bottom Controls */}
-      <div className="bg-neutral-800 border-t border-neutral-700 p-4">
-        <div className="flex items-center justify-between">
-          {/* Song Navigation */}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={goToPreviousSong}
-              disabled={currentSongIndex === 0}
-            >
-              이전 곡
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={goToNextSong}
-              disabled={currentSongIndex === setlist.length - 1}
-            >
-              다음 곡
-            </Button>
-          </div>
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-          {/* Play/Pause */}
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => setIsPlaying(!isPlaying)}
+function AddGap({
+  index,
+  activeIndex,
+  onToggle,
+  onAddSong,
+  onAddMent,
+}: {
+  index: number;
+  activeIndex: number | null;
+  onToggle: (index: number | null) => void;
+  onAddSong: (index: number) => void;
+  onAddMent: (index: number) => void;
+}) {
+  const isOpen = activeIndex === index;
+
+  return (
+    <div className="flex items-center justify-center py-1 px-4">
+      {isOpen ? (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onAddSong(index)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold hover:opacity-80 transition-opacity"
           >
-            {isPlaying ? '일시정지' : '재생'}
-          </Button>
-
-          {/* Song Position */}
-          <div className="text-white text-sm">
-            곡 {currentSongIndex + 1} / {setlist.length}
-          </div>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+            곡
+          </button>
+          <button
+            onClick={() => onAddMent(index)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold hover:opacity-80 transition-opacity"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            멘트
+          </button>
+          <button
+            onClick={() => onToggle(null)}
+            className="p-1 rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
+      ) : (
+        <button
+          onClick={() => onToggle(index)}
+          className="w-6 h-6 rounded-full border-2 border-dashed border-neutral-300 dark:border-neutral-600 flex items-center justify-center text-neutral-400 hover:border-neutral-500 hover:text-neutral-600 dark:hover:border-neutral-400 dark:hover:text-neutral-300 transition-colors"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SongRow({
+  item,
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+}: {
+  item: Extract<DraftItem, { type: 'song' }>;
+  index: number;
+  total: number;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-4 py-3">
+      {/* Order arrows */}
+      <div className="flex flex-col gap-0.5 flex-shrink-0">
+        <button
+          onClick={onMoveUp}
+          disabled={index === 0}
+          className="p-0.5 rounded text-neutral-300 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-300 disabled:opacity-20 transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
+        <button
+          onClick={onMoveDown}
+          disabled={index === total - 1}
+          className="p-0.5 rounded text-neutral-300 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-300 disabled:opacity-20 transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
       </div>
+
+      {/* Icon */}
+      <div className="w-7 h-7 rounded-lg bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0">
+        <svg className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{item.sheetTitle}</p>
+        <p className="text-xs text-neutral-400 truncate">
+          {[item.songFormName, item.artist].filter(Boolean).join(' · ') || '송폼 없음'}
+        </p>
+      </div>
+
+      {/* Remove */}
+      <button
+        onClick={onRemove}
+        className="p-1.5 rounded-lg text-neutral-300 dark:text-neutral-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function MentRow({
+  item,
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+  onTextChange,
+}: {
+  item: Extract<DraftItem, { type: 'ment' }>;
+  index: number;
+  total: number;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+  onTextChange: (text: string) => void;
+}) {
+  return (
+    <div className="flex items-start gap-2 px-4 py-3 bg-blue-50/50 dark:bg-blue-900/10">
+      {/* Order arrows */}
+      <div className="flex flex-col gap-0.5 flex-shrink-0 mt-1">
+        <button
+          onClick={onMoveUp}
+          disabled={index === 0}
+          className="p-0.5 rounded text-blue-200 dark:text-blue-800 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-20 transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
+        <button
+          onClick={onMoveDown}
+          disabled={index === total - 1}
+          className="p-0.5 rounded text-blue-200 dark:text-blue-800 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-20 transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Icon */}
+      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <svg className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      </div>
+
+      {/* Text input */}
+      <textarea
+        value={item.text}
+        onChange={(e) => onTextChange(e.target.value)}
+        placeholder="멘트 내용을 입력하세요..."
+        rows={2}
+        className="flex-1 text-sm text-neutral-900 dark:text-white bg-transparent placeholder-neutral-400 focus:outline-none resize-none"
+      />
+
+      {/* Remove */}
+      <button
+        onClick={onRemove}
+        className="p-1.5 rounded-lg text-blue-200 dark:text-blue-800 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0 mt-0.5"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   );
 }

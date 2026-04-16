@@ -1,20 +1,29 @@
 import { create } from 'zustand';
-import { Session, SessionSong, Participant } from '@/types';
+import { Session, SessionSong, SessionItem, Participant } from '@/types';
 import { supabase } from '@/lib/supabase';
 
+// Draft item type used in session editor (client-side only)
+export type DraftItem =
+  | { localId: string; type: 'song'; sheetId: string; songFormId?: string; sheetTitle: string; songFormName?: string; artist?: string }
+  | { localId: string; type: 'ment'; text: string };
+
 interface SessionStore {
+  // Session list
+  sessions: Session[];
+  isLoading: boolean;
+  error: string | null;
+
+  // Session detail (player / editor)
   currentSession: Session | null;
+  items: SessionItem[];
   setlist: SessionSong[];
   currentSongIndex: number;
   tempo: number;
   participants: Participant[];
   lockStatus: { lockedBy: string | null; lockedAt: string | null } | null;
-  isLoading: boolean;
-  error: string | null;
 
-  // Actions
+  // Setters
   setCurrentSession: (session: Session | null) => void;
-  setSetlist: (songs: SessionSong[]) => void;
   setCurrentSongIndex: (index: number) => void;
   setTempo: (tempo: number) => void;
   setParticipants: (participants: Participant[]) => void;
@@ -22,14 +31,17 @@ interface SessionStore {
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
-  // Session methods
-  sessions: Session[];
+  // Session list actions
   loadSessions: () => Promise<void>;
-  createSession: (name: string, sheetIds: string[], teamId?: string) => Promise<Session>;
-  loadSession: (sessionId: string) => Promise<void>;
+  createSession: (name: string) => Promise<Session>;
+  deleteSession: (sessionId: string) => Promise<void>;
+
+  // Session detail actions
+  loadSessionWithItems: (sessionId: string) => Promise<void>;
+  saveItems: (sessionId: string, teamId: string, items: DraftItem[]) => Promise<void>;
   endSession: (sessionId: string) => Promise<void>;
-  addToSetlist: (sheetVersionId: string) => Promise<void>;
-  removeFromSetlist: (index: number) => Promise<void>;
+
+  // Player actions (legacy)
   goToNextSong: () => void;
   goToPreviousSong: () => void;
   updateTempo: (tempo: number) => Promise<void>;
@@ -39,17 +51,17 @@ interface SessionStore {
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
   sessions: [],
+  isLoading: false,
+  error: null,
   currentSession: null,
+  items: [],
   setlist: [],
   currentSongIndex: 0,
   tempo: 100,
   participants: [],
   lockStatus: null,
-  isLoading: false,
-  error: null,
 
   setCurrentSession: (session) => set({ currentSession: session }),
-  setSetlist: (songs) => set({ setlist: songs }),
   setCurrentSongIndex: (index) => set({ currentSongIndex: index }),
   setTempo: (tempo) => set({ tempo }),
   setParticipants: (participants) => set({ participants }),
@@ -76,16 +88,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  createSession: async (name: string, sheetIds: string[], teamId?: string) => {
+  createSession: async (name: string) => {
     set({ isLoading: true, error: null });
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data: sessionData, error: sessionError } = await supabase
+      const { data, error } = await supabase
         .from('sessions')
         .insert([{
-          ...(teamId ? { team_id: teamId } : {}),
           name,
           created_by: user.id,
           status: 'active',
@@ -96,35 +107,33 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         .select()
         .single();
 
-      if (sessionError) throw sessionError;
-
-      if (sheetIds.length > 0) {
-        const { error: setlistError } = await supabase
-          .from('session_songs')
-          .insert(sheetIds.map((sheetId, i) => ({
-            session_id: sessionData.id,
-            sheet_version_id: sheetId,
-            sequence_order: i,
-          })));
-        if (setlistError) throw setlistError;
-      }
+      if (error) throw error;
 
       set((state) => ({
-        sessions: [sessionData, ...state.sessions],
-        currentSession: sessionData,
-        currentSongIndex: 0,
-        tempo: 100,
+        sessions: [data, ...state.sessions],
         isLoading: false,
       }));
 
-      return sessionData;
+      return data;
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to create session', isLoading: false });
       throw error;
     }
   },
 
-  loadSession: async (sessionId: string) => {
+  deleteSession: async (sessionId: string) => {
+    try {
+      await supabase.from('session_songs').delete().eq('session_id', sessionId);
+      const { error } = await supabase.from('sessions').delete().eq('id', sessionId);
+      if (error) throw error;
+      set((state) => ({ sessions: state.sessions.filter(s => s.id !== sessionId) }));
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to delete session' });
+      throw error;
+    }
+  },
+
+  loadSessionWithItems: async (sessionId: string) => {
     set({ isLoading: true, error: null });
     try {
       const { data: sessionData, error: sessionError } = await supabase
@@ -135,127 +144,98 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       if (sessionError) throw sessionError;
 
-      const { data: setlistData, error: setlistError } = await supabase
+      const { data: itemsData, error: itemsError } = await supabase
         .from('session_songs')
-        .select('*')
+        .select('*, sheet:sheets(id, title, artist, key, tempo, song_forms(id, name, key, tempo))')
         .eq('session_id', sessionId)
         .order('sequence_order', { ascending: true });
 
-      if (setlistError) throw setlistError;
+      if (itemsError) throw itemsError;
 
-      const { data: participantData, error: participantError } = await supabase
-        .from('participants')
-        .select('*')
-        .eq('session_id', sessionId);
+      // Map DB rows to SessionItem shape
+      const items: SessionItem[] = (itemsData || []).map((row: any) => ({
+        id: row.id,
+        session_id: row.session_id,
+        type: row.type || 'song',
+        sequence_order: row.sequence_order,
+        sheet_id: row.sheet_id,
+        song_form_id: row.song_form_id,
+        sheet: row.sheet || undefined,
+        song_form: row.sheet?.song_forms?.find((f: any) => f.id === row.song_form_id),
+        ment_text: row.ment_text,
+        created_at: row.created_at,
+      }));
 
-      if (participantError) throw participantError;
-
-      set({
-        currentSession: sessionData,
-        setlist: setlistData || [],
-        participants: participantData || [],
-        isLoading: false,
-      });
+      set({ currentSession: sessionData, items, isLoading: false });
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to load session',
-        isLoading: false,
-      });
+      set({ error: error instanceof Error ? error.message : 'Failed to load session', isLoading: false });
+    }
+  },
+
+  saveItems: async (sessionId: string, teamId: string, draftItems: DraftItem[]) => {
+    set({ isLoading: true, error: null });
+    try {
+      // 1. Update session metadata
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .update({ team_id: teamId || null })
+        .eq('id', sessionId);
+      if (sessionError) throw sessionError;
+
+      // 2. Delete existing items
+      const { error: deleteError } = await supabase
+        .from('session_songs')
+        .delete()
+        .eq('session_id', sessionId);
+      if (deleteError) throw deleteError;
+
+      // 3. Insert new items
+      if (draftItems.length > 0) {
+        const rows = draftItems.map((item, i) =>
+          item.type === 'song'
+            ? {
+                session_id: sessionId,
+                type: 'song',
+                sheet_id: item.sheetId,
+                song_form_id: item.songFormId || null,
+                sequence_order: i,
+              }
+            : {
+                session_id: sessionId,
+                type: 'ment',
+                ment_text: item.text,
+                sequence_order: i,
+              }
+        );
+
+        const { error: insertError } = await supabase.from('session_songs').insert(rows);
+        if (insertError) throw insertError;
+      }
+
+      // Refresh
+      await get().loadSessionWithItems(sessionId);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to save session', isLoading: false });
+      throw error;
     }
   },
 
   endSession: async (sessionId: string) => {
-    set({ isLoading: true, error: null });
     try {
       const { error } = await supabase
         .from('sessions')
-        .update({
-          status: 'completed',
-          ended_at: new Date().toISOString(),
-        })
+        .update({ status: 'completed', ended_at: new Date().toISOString() })
         .eq('id', sessionId);
-
       if (error) throw error;
-
-      set({
-        currentSession: null,
-        setlist: [],
-        currentSongIndex: 0,
-        isLoading: false,
-      });
+      set({ currentSession: null, items: [], currentSongIndex: 0 });
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to end session',
-        isLoading: false,
-      });
-    }
-  },
-
-  addToSetlist: async (sheetVersionId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { currentSession, setlist } = get();
-      if (!currentSession) throw new Error('No active session');
-
-      const nextOrder = setlist.length;
-
-      const { data, error } = await supabase
-        .from('session_songs')
-        .insert([
-          {
-            session_id: currentSession.id,
-            sheet_version_id: sheetVersionId,
-            sequence_order: nextOrder,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set({
-        setlist: [...setlist, data],
-        isLoading: false,
-      });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to add to setlist',
-        isLoading: false,
-      });
-    }
-  },
-
-  removeFromSetlist: async (index: number) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { setlist } = get();
-      const song = setlist[index];
-
-      const { error } = await supabase
-        .from('session_songs')
-        .delete()
-        .eq('id', song.id);
-
-      if (error) throw error;
-
-      set({
-        setlist: setlist.filter((_, i) => i !== index),
-        isLoading: false,
-      });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to remove from setlist',
-        isLoading: false,
-      });
+      set({ error: error instanceof Error ? error.message : 'Failed to end session' });
     }
   },
 
   goToNextSong: () => {
     set((state) => ({
-      currentSongIndex: Math.min(
-        state.currentSongIndex + 1,
-        state.setlist.length - 1
-      ),
+      currentSongIndex: Math.min(state.currentSongIndex + 1, state.setlist.length - 1),
     }));
   },
 
@@ -266,97 +246,55 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   updateTempo: async (tempo: number) => {
-    set({ isLoading: true, error: null });
     try {
       const { currentSession } = get();
       if (!currentSession) throw new Error('No active session');
-
-      const { error } = await supabase
-        .from('sessions')
-        .update({ tempo })
-        .eq('id', currentSession.id);
-
+      const { error } = await supabase.from('sessions').update({ tempo }).eq('id', currentSession.id);
       if (error) throw error;
-
-      set({
-        tempo,
-        isLoading: false,
-      });
+      set({ tempo });
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to update tempo',
-        isLoading: false,
-      });
+      set({ error: error instanceof Error ? error.message : 'Failed to update tempo' });
     }
   },
 
   acquireLock: async (sheetVersionId: string) => {
-    set({ isLoading: true, error: null });
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Try to insert a lock record
       const { data, error } = await supabase
         .from('sheet_locks')
-        .insert([
-          {
-            sheet_version_id: sheetVersionId,
-            locked_by: user.id,
-            locked_at: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes expiry
-          },
-        ])
+        .insert([{
+          sheet_version_id: sheetVersionId,
+          locked_by: user.id,
+          locked_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        }])
         .select()
         .single();
 
       if (error) {
-        // Lock already exists
-        set({
-          lockStatus: { lockedBy: null, lockedAt: null },
-          isLoading: false,
-        });
+        set({ lockStatus: { lockedBy: null, lockedAt: null } });
         return false;
       }
 
-      set({
-        lockStatus: { lockedBy: user.id, lockedAt: data.locked_at },
-        isLoading: false,
-      });
-
+      set({ lockStatus: { lockedBy: user.id, lockedAt: data.locked_at } });
       return true;
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to acquire lock',
-        isLoading: false,
-      });
+    } catch {
       return false;
     }
   },
 
   releaseLock: async (sheetVersionId: string) => {
-    set({ isLoading: true, error: null });
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { error } = await supabase
-        .from('sheet_locks')
-        .delete()
+      if (!user) return;
+      await supabase.from('sheet_locks').delete()
         .eq('sheet_version_id', sheetVersionId)
         .eq('locked_by', user.id);
-
-      if (error) throw error;
-
-      set({
-        lockStatus: null,
-        isLoading: false,
-      });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to release lock',
-        isLoading: false,
-      });
+      set({ lockStatus: null });
+    } catch {
+      // ignore
     }
   },
 }));
