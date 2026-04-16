@@ -179,7 +179,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       const { data: itemsData, error: itemsError } = await supabase
         .from('session_songs')
-        .select('*, sheet:sheets(id, title, artist, key, tempo, song_forms(id, name, key, tempo))')
+        .select('*, sheet:sheets(id, title, artist, key, tempo, sheet_versions(id, file_path, file_type, version_number, uploaded_by, created_at), song_forms(id, name, key, tempo, sections, flow, drawing_data, memo, created_by, created_at, updated_at))')
         .eq('session_id', sessionId)
         .order('sequence_order', { ascending: true });
 
