@@ -59,7 +59,7 @@ export default function SessionsPage() {
           <h1 className="text-xl font-bold text-neutral-900 dark:text-white">세션</h1>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:opacity-80 transition-opacity"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -161,7 +161,7 @@ export default function SessionsPage() {
               <button
                 onClick={handleCreate}
                 disabled={!name.trim() || creating}
-                className="w-full py-3 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-semibold hover:opacity-80 disabled:opacity-40 transition-opacity"
+                className="w-full py-3 rounded-2xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-40 transition-colors"
               >
                 {creating ? '생성 중...' : '만들기'}
               </button>
