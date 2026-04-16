@@ -80,12 +80,17 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
 
   const openFormEditor = useCallback(() => {
     const f = item.song_form;
+    const sects = ((f?.sections as any[]) ?? []) as import('@/types').SongSection[];
+    // flow가 없으면 sections 순서 그대로 fallback (SongFormBar 동일 로직)
+    const rawFlow = f?.flow && (f.flow as any[]).length > 0
+      ? (f.flow as any[])
+      : sects.map((s) => ({ id: s.id }));
     setFormEditorValue({
       name: f?.name ?? defaultFormName,
       key: f?.key ?? '',
       tempo: (f?.tempo as number | undefined) ?? '',
-      sections: (f?.sections as any) ?? [],
-      flow: normalizeFlow(f?.flow),
+      sections: sects,
+      flow: normalizeFlow(rawFlow),
       memo: (f?.memo as string | undefined) ?? '',
     });
     setFormSaveError(null);
