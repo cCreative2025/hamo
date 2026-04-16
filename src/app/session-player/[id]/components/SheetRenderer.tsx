@@ -31,9 +31,10 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
           return;
         }
 
-        const versions = sheet.sheet_versions ?? [];
-        const activeVersion: SheetVersion | undefined =
-          versions.find((v) => v.id === sheet.active_version_id) ?? versions[0];
+        const versions = (sheet.sheet_versions ?? [])
+          .slice()
+          .sort((a, b) => b.version_number - a.version_number);
+        const activeVersion: SheetVersion | undefined = versions[0];
 
         if (!activeVersion) {
           setError('악보 파일이 없습니다');

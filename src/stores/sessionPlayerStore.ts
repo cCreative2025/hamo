@@ -137,7 +137,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       // Load session items
       const { data: itemsData, error: itemsError } = await supabase
         .from('session_songs')
-        .select('id, session_id, type, sequence_order, ment_text, sheet_id, song_form_id, created_at, sheet:sheets(id, title, artist, active_version_id, sheet_versions(id, file_path, file_type, page_count, version_number)), song_form:song_forms(id, name, key)')
+        .select('id, session_id, type, sequence_order, ment_text, sheet_id, song_form_id, created_at, sheet:sheets(id, title, artist, sheet_versions(id, file_path, file_type, page_count, version_number)), song_form:song_forms(id, name, key)')
         .eq('session_id', sessionId)
         .order('sequence_order', { ascending: true });
 
