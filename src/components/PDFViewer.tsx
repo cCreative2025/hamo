@@ -15,12 +15,14 @@ interface PDFViewerProps {
   fileUrl: string;
   maxPages?: number;
   onPageChange?: (page: number) => void;
+  canvasOverlay?: React.ReactNode;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
   fileUrl,
   maxPages = 20,
   onPageChange,
+  canvasOverlay,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<pdfjs.PDFDocumentProxy | null>(null);
@@ -135,10 +137,13 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             <LoadingSpinner text="PDF 렌더링 중..." />
           </div>
         ) : (
-          <canvas
-            ref={canvasRef}
-            className="max-w-full h-auto shadow-lg"
-          />
+          <div className="relative inline-block">
+            <canvas
+              ref={canvasRef}
+              className="max-w-full h-auto shadow-lg block"
+            />
+            {canvasOverlay}
+          </div>
         )}
       </div>
     </div>
