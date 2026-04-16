@@ -76,7 +76,7 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
       {isFullscreen && (
         <button
           onClick={exitFullscreen}
-          className={`absolute top-3 right-3 transition-opacity duration-150 ${
+          className={`absolute bottom-4 right-4 transition-opacity duration-150 ${
             showNav ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
