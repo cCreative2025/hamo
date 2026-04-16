@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { SessionItem, SheetVersion } from '@/types';
-import { supabase } from '@/lib/supabase';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PDFViewer } from '@/components/PDFViewer';
 
@@ -41,14 +40,12 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
           return;
         }
 
-        const { data, error: urlError } = await supabase.storage
-          .from('sheets')
-          .createSignedUrl(activeVersion.file_path, 3600);
+        const res = await fetch(`/api/signed-url?path=${encodeURIComponent(activeVersion.file_path)}`);
+        const json = await res.json();
 
-        if (urlError) throw new Error(urlError.message);
-        if (!data?.signedUrl) throw new Error('서명된 URL을 생성할 수 없습니다');
+        if (!res.ok || !json.signedUrl) throw new Error(json.error ?? '서명된 URL을 생성할 수 없습니다');
 
-        setSignedUrl(data.signedUrl);
+        setSignedUrl(json.signedUrl);
         setFileType(activeVersion.file_type);
       } catch (err) {
         const message = err instanceof Error ? err.message : '악보를 불러올 수 없습니다';
