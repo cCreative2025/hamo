@@ -96,7 +96,7 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
 
   if (fileType === 'pdf') {
     return (
-      <div className="flex-1 bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+      <div className="flex-1 min-h-0 bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
         <PDFViewer fileUrl={signedUrl} />
       </div>
     );
