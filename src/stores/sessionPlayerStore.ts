@@ -10,6 +10,7 @@ export interface SessionLayer {
   created_by: string;
   version_number: number;
   drawing_data: unknown[];
+  is_guest: boolean;
   created_at: string;
 }
 
@@ -62,7 +63,9 @@ interface SessionPlayerStore {
   updateSessionTempo: (sessionSongId: string, tempo: number | null) => Promise<void>;
   updateSongFormTempo: (songFormId: string, tempo: number) => Promise<void>;
   updateBaseLayer: (songFormId: string, paths: unknown[]) => Promise<void>;
-  upsertMyLayer: (sessionId: string, songFormId: string, paths: unknown[]) => Promise<void>;
+  upsertMyLayer: (sessionId: string, songFormId: string, paths: unknown[], isGuest: boolean) => Promise<void>;
+  updateSongFormData: (songFormId: string, data: { name?: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => Promise<void>;
+  createSongFormForItem: (sessionSongId: string, data: { name: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => Promise<{ id: string }>;
 }
 
 /**
@@ -179,9 +182,9 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
         isLoading: false,
       });
 
-      // Initialize layer visibility
+      // Initialize layer visibility — own layer ON, others OFF by default
       const visibleLayers = (layersData || []).reduce((acc, layer) => {
-        acc[layer.id] = true;
+        acc[layer.id] = layer.created_by === currentUser?.id;
         return acc;
       }, {} as Record<string, boolean>);
       set({ visibleLayers });
@@ -339,6 +342,40 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     }));
   },
 
+  /** Update song form fields (key, sections, flow, etc.) */
+  updateSongFormData: async (songFormId: string, data: { name?: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => {
+    const { error } = await supabase.from('song_forms').update(data).eq('id', songFormId);
+    if (error) throw new Error(error.message);
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.song_form_id === songFormId && item.song_form
+          ? { ...item, song_form: { ...item.song_form, ...data } }
+          : item
+      ),
+    }));
+  },
+
+  /** Create a new song_form and link it to a session_song */
+  createSongFormForItem: async (sessionSongId: string, data: { name: string; key?: string; tempo?: number | null; sections?: unknown; flow?: unknown; memo?: string }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    const { data: newForm, error } = await supabase
+      .from('song_forms')
+      .insert({ ...data, created_by: user.id, sections: data.sections ?? [], flow: data.flow ?? [] })
+      .select('id, name, key, tempo, sections, flow, drawing_data, memo, created_by, created_at, updated_at')
+      .single();
+    if (error) throw new Error(error.message);
+    await supabase.from('session_songs').update({ song_form_id: newForm.id }).eq('id', sessionSongId);
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.id === sessionSongId
+          ? { ...item, song_form_id: newForm.id, song_form: newForm }
+          : item
+      ),
+    }));
+    return newForm;
+  },
+
   /** Save paths to song_form.drawing_data (base layer) */
   updateBaseLayer: async (songFormId: string, paths: unknown[]) => {
     await supabase.from('song_forms').update({ drawing_data: paths }).eq('id', songFormId);
@@ -352,7 +389,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
   },
 
   /** Upsert user's session layer */
-  upsertMyLayer: async (sessionId: string, songFormId: string, paths: unknown[]) => {
+  upsertMyLayer: async (sessionId: string, songFormId: string, paths: unknown[], isGuest: boolean) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { layers } = get();
@@ -366,22 +403,32 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       drawing_data: paths,
       version_number: nextVersion,
       created_by: user.id,
+      is_guest: isGuest,
     };
-    await supabase.from('session_layers').insert(row);
+    const { data: inserted, error } = await supabase
+      .from('session_layers')
+      .insert(row)
+      .select('id, created_at')
+      .single();
+    if (error) throw new Error(error.message);
     const newLayer: SessionLayer = {
-      id: `${user.id}-${songFormId}-${nextVersion}`,
+      id: inserted.id,
       session_id: sessionId,
       song_form_id: songFormId,
       created_by: user.id,
       version_number: nextVersion,
       drawing_data: paths,
-      created_at: new Date().toISOString(),
+      is_guest: isGuest,
+      created_at: inserted.created_at,
     };
     set((state) => {
       const filtered = state.layers.filter(
         (l) => !(l.song_form_id === songFormId && l.created_by === user.id)
       );
-      return { layers: [newLayer, ...filtered] };
+      return {
+        layers: [newLayer, ...filtered],
+        visibleLayers: { ...state.visibleLayers, [inserted.id]: true },
+      };
     });
   },
 

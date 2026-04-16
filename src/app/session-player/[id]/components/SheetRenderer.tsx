@@ -12,8 +12,9 @@ import { SongFormBar } from './SongFormBar';
 import { ReadOnlyCanvas } from './ReadOnlyCanvas';
 import { LayerDrawer } from './LayerDrawer';
 import { NavOverlay, NavProps } from './SessionPlayerMain';
+import { SongFormInput, SongFormInputValue } from '@/components/SongFormInput';
 
-const PEN_COLORS = ['#ffffff', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7'];
+const PEN_COLORS = ['#000000', '#ffffff', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7'];
 
 interface SheetRendererProps {
   currentIndex: number;
@@ -24,9 +25,10 @@ interface SheetRendererProps {
 type DrawTarget = 'base' | 'mine' | null;
 
 export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererProps) {
-  const { layers, visibleLayers, sessionId, userRole, updateBaseLayer, upsertMyLayer } = useSessionPlayerStore();
+  const { layers, visibleLayers, sessionId, session, userRole, updateBaseLayer, upsertMyLayer, updateSongFormData, createSongFormForItem } = useSessionPlayerStore();
   const { currentUser } = useAuthStore();
   const isCreator = userRole === 'creator';
+  const isGuest = userRole === 'guest';
 
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'pdf' | 'image' | null>(null);
@@ -68,6 +70,54 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
     setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
   }, []);
 
+  // ── Song form editor ─────────────────────────────────────────────────────────
+  const [formEditorOpen, setFormEditorOpen] = useState(false);
+  const [formEditorValue, setFormEditorValue] = useState<SongFormInputValue | null>(null);
+  const [formSaving, setFormSaving] = useState(false);
+  const [formSaveError, setFormSaveError] = useState<string | null>(null);
+
+  const defaultFormName = session?.name ?? '미정';
+
+  const openFormEditor = useCallback(() => {
+    const f = item.song_form;
+    setFormEditorValue({
+      name: f?.name ?? defaultFormName,
+      key: f?.key ?? '',
+      tempo: (f?.tempo as number | undefined) ?? '',
+      sections: (f?.sections as any) ?? [],
+      flow: (f?.flow as any) ?? [],
+      memo: (f?.memo as string | undefined) ?? '',
+    });
+    setFormSaveError(null);
+    setFormEditorOpen(true);
+  }, [item.song_form, defaultFormName]);
+
+  const saveFormEditor = async () => {
+    if (!formEditorValue) return;
+    setFormSaving(true);
+    setFormSaveError(null);
+    try {
+      const data = {
+        name: formEditorValue.name || defaultFormName,
+        key: formEditorValue.key,
+        tempo: formEditorValue.tempo === '' ? null : Number(formEditorValue.tempo),
+        sections: formEditorValue.sections,
+        flow: formEditorValue.flow,
+        memo: formEditorValue.memo,
+      };
+      if (item.song_form_id) {
+        await updateSongFormData(item.song_form_id, data);
+      } else {
+        await createSongFormForItem(item.id, data);
+      }
+      setFormEditorOpen(false);
+    } catch (e) {
+      setFormSaveError(e instanceof Error ? e.message : '저장 실패');
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
   // ── Drawing mode ─────────────────────────────────────────────────────────────
   const [drawTarget, setDrawTarget] = useState<DrawTarget>(null);
   const [activeTool, setActiveTool] = useState<'pen' | 'eraser'>('pen');
@@ -84,6 +134,8 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const snapshotRef = useRef<DrawPath[]>([]);
+  // Tracks the song_form_id to use in handleSave (may be auto-created during enterDraw)
+  const activeSongFormIdRef = useRef<string | null>(null);
 
   const syncUndoRedo = useCallback(() => {
     startTransition(() => {
@@ -92,15 +144,31 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
     });
   }, []);
 
-  // Enter drawing mode
-  const enterDraw = useCallback((target: DrawTarget) => {
+  // Enter drawing mode (async — may auto-create song_form if none exists)
+  const enterDraw = useCallback(async (target: DrawTarget) => {
     if (!target) return;
+
+    let songFormId = item.song_form_id ?? null;
+
+    // No song form → auto-create with session name
+    if (!songFormId) {
+      try {
+        const newForm = await createSongFormForItem(item.id, { name: defaultFormName });
+        songFormId = newForm.id;
+      } catch (e) {
+        console.error('[enterDraw] auto-create song_form failed:', e);
+        return;
+      }
+    }
+
+    activeSongFormIdRef.current = songFormId;
+
     let initial: DrawPath[] = [];
     if (target === 'base') {
       initial = (item.song_form?.drawing_data as DrawPath[] | undefined) ?? [];
     } else {
       const mine = layers.find(
-        (l) => l.song_form_id === item.song_form_id && l.created_by === currentUser?.id
+        (l) => l.song_form_id === songFormId && l.created_by === currentUser?.id
       );
       initial = (mine?.drawing_data as DrawPath[] | undefined) ?? [];
     }
@@ -113,7 +181,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
     setCanRedo(false);
     setDrawTarget(target);
     setDrawerOpen(false);
-  }, [item, layers, currentUser]);
+  }, [item, layers, currentUser, defaultFormName, createSongFormForItem]);
 
   const handlePathsChange = useCallback((paths: DrawPath[]) => {
     undoStackRef.current.push(editPathsRef.current);
@@ -152,12 +220,13 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   const handleSave = async () => {
     if (!drawTarget) return;
     setSaving(true);
+    const sfId = activeSongFormIdRef.current ?? item.song_form_id ?? null;
     try {
       const paths = editPathsRef.current;
-      if (drawTarget === 'base' && item.song_form_id) {
-        await updateBaseLayer(item.song_form_id, paths);
-      } else if (drawTarget === 'mine' && sessionId && item.song_form_id) {
-        await upsertMyLayer(sessionId, item.song_form_id, paths);
+      if (drawTarget === 'base' && sfId) {
+        await updateBaseLayer(sfId, paths);
+      } else if (drawTarget === 'mine' && sessionId && sfId) {
+        await upsertMyLayer(sessionId, sfId, paths, isGuest);
       }
     } finally {
       setSaving(false);
@@ -183,10 +252,15 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   const mergedPaths = useMemo<DrawPath[]>(() => {
     if (drawTarget) return []; // hide static overlay while drawing
     const sessionPaths = songFormLayers
-      .filter((l) => visibleLayers[l.id] !== false)
+      .filter((l) => {
+        if (visibleLayers[l.id] === false) return false;
+        // Guest layers are only visible to their creator
+        if (l.is_guest && l.created_by !== currentUser?.id) return false;
+        return true;
+      })
       .flatMap((l) => (l.drawing_data as DrawPath[]) ?? []);
     return [...(showBase ? basePaths : []), ...sessionPaths];
-  }, [basePaths, showBase, songFormLayers, visibleLayers, drawTarget]);
+  }, [basePaths, showBase, songFormLayers, visibleLayers, drawTarget, currentUser?.id]);
 
   // ── File loading ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -354,6 +428,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
           isCreator={isCreator}
           layerCount={songFormLayers.length}
           onLayerOpen={() => setDrawerOpen(true)}
+          onEditForm={isCreator ? openFormEditor : undefined}
         />
       )}
 
@@ -390,15 +465,16 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
         )}
 
         {/* Layer drawer (일반 모드만) */}
-        {!inDrawMode && item.song_form_id && (
+        {!inDrawMode && (
           <LayerDrawer
-            songFormId={item.song_form_id}
+            songFormId={item.song_form_id ?? null}
             basePaths={basePaths}
             showBase={showBase}
             onToggleBase={() => setShowBase((v) => !v)}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
             isCreator={isCreator}
+            isGuest={isGuest}
             onEditBase={() => enterDraw('base')}
             onEditMine={() => enterDraw('mine')}
           />
@@ -406,6 +482,45 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
 
         {/* Nav arrows (일반 모드만) */}
         {!inDrawMode && navProps && <NavOverlay {...navProps} />}
+
+        {/* Song form editor modal */}
+        {formEditorOpen && formEditorValue && (
+          <div className="absolute inset-0 z-50 flex flex-col bg-white">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-white">
+              <button
+                onClick={() => setFormEditorOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <span className="text-sm font-semibold text-neutral-800">송폼 편집</span>
+              <button
+                onClick={saveFormEditor}
+                disabled={formSaving}
+                className="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium disabled:opacity-60 transition-colors"
+              >
+                {formSaving ? '저장 중…' : '저장'}
+              </button>
+            </div>
+            {formSaveError && (
+              <div className="px-4 py-2 bg-red-50 text-red-600 text-xs border-b border-red-200">
+                {formSaveError}
+              </div>
+            )}
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <SongFormInput
+                value={formEditorValue}
+                onChange={setFormEditorValue}
+                showTempo
+                showMemo
+              />
+            </div>
+          </div>
+        )}
 
         {/* Clear confirm dialog */}
         {clearPending && (

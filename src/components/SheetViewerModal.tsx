@@ -24,7 +24,7 @@ const SECTION_BADGE_COLORS: Record<string, string> = {
 function getSectionColor(type: string) { return SECTION_COLORS[type] ?? 'bg-violet-100 text-violet-700'; }
 function getSectionBadge(type: string) { return SECTION_BADGE_COLORS[type] ?? 'bg-violet-600 text-white'; }
 
-const PEN_COLORS = ['#1e1e1e', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7'];
+const PEN_COLORS = ['#000000', '#ffffff', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7'];
 
 // ─── 송폼 흐름 바 ─────────────────────────────────────────────────────────────
 const SongFormBar: React.FC<{ form: SongForm; onEnterDrawing?: () => void }> = ({ form, onEnterDrawing }) => {

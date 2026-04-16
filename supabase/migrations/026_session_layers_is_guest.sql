@@ -1,0 +1,1 @@
+ALTER TABLE session_layers ADD COLUMN IF NOT EXISTS is_guest BOOLEAN DEFAULT false;

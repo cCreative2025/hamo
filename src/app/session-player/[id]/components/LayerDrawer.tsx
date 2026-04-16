@@ -6,13 +6,14 @@ import { useAuthStore } from '@/stores/authStore';
 import { DrawPath } from '@/components/DrawingCanvas';
 
 interface LayerDrawerProps {
-  songFormId: string;
+  songFormId: string | null | undefined;
   basePaths?: DrawPath[];
   showBase?: boolean;
   onToggleBase?: () => void;
   open: boolean;
   onClose: () => void;
   isCreator?: boolean;
+  isGuest?: boolean;
   onEditBase?: () => void;   // leader: edit base layer
   onEditMine?: () => void;   // all: edit my session layer
 }
@@ -48,13 +49,14 @@ const EditBtn = ({ onClick }: { onClick: () => void }) => (
 
 export function LayerDrawer({
   songFormId, basePaths = [], showBase = true, onToggleBase,
-  open, onClose, isCreator, onEditBase, onEditMine,
+  open, onClose, isCreator, isGuest, onEditBase, onEditMine,
 }: LayerDrawerProps) {
   const { layers, visibleLayers, toggleLayerVisibility } = useSessionPlayerStore();
   const { currentUser } = useAuthStore();
 
   // Only layers for this song form, latest version per creator
   const relevantLayers = React.useMemo<SessionLayer[]>(() => {
+    if (!songFormId) return [];
     const byForm = layers.filter((l) => l.song_form_id === songFormId);
     const latestByUser: Record<string, SessionLayer> = {};
     for (const l of byForm) {
@@ -67,7 +69,10 @@ export function LayerDrawer({
   }, [layers, songFormId]);
 
   const myLayer = relevantLayers.find((l) => l.created_by === currentUser?.id);
-  const otherLayers = relevantLayers.filter((l) => l.created_by !== currentUser?.id);
+  // Guests only see their own layer; non-guests see non-guest others' layers
+  const otherLayers = isGuest
+    ? []
+    : relevantLayers.filter((l) => l.created_by !== currentUser?.id && !l.is_guest);
 
   return (
     <>
