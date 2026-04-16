@@ -147,6 +147,7 @@ export interface SessionItem {
   song_form_id?: string;
   sheet?: Sheet;
   song_form?: SongForm;
+  tempo_override?: number | null;
   // ment fields
   ment_text?: string;
   created_at: string;

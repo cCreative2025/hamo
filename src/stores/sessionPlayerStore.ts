@@ -59,6 +59,9 @@ interface SessionPlayerStore {
   subscribeToSession: (sessionId: string) => void;
   unsubscribeFromSession: () => void;
   cleanup: () => void;
+  updateSessionTempo: (sessionSongId: string, tempo: number | null) => Promise<void>;
+  updateBaseLayer: (songFormId: string, paths: unknown[]) => Promise<void>;
+  upsertMyLayer: (sessionId: string, songFormId: string, paths: unknown[]) => Promise<void>;
 }
 
 /**
@@ -144,7 +147,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       // Load session items
       const { data: itemsData, error: itemsError } = await supabase
         .from('session_songs')
-        .select('id, session_id, type, sequence_order, ment_text, sheet_id, song_form_id, created_at, sheet:sheets(id, title, artist, tempo, sheet_versions(id, file_path, file_type, page_count, version_number)), song_form:song_forms!song_form_id(id, name, key, sections, flow, drawing_data)')
+        .select('id, session_id, type, sequence_order, ment_text, sheet_id, song_form_id, tempo_override, created_at, sheet:sheets(id, title, artist, tempo, sheet_versions(id, file_path, file_type, page_count, version_number)), song_form:song_forms!song_form_id(id, name, key, tempo, sections, flow, drawing_data)')
         .eq('session_id', sessionId)
         .order('sequence_order', { ascending: true });
 
@@ -301,6 +304,62 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       supabase.removeChannel(state.realtimeChannel);
       set({ realtimeChannel: null, isSubscribed: false });
     }
+  },
+
+  /** Update tempo override for a session song (leader only) */
+  updateSessionTempo: async (sessionSongId: string, tempo: number | null) => {
+    await supabase.from('session_songs').update({ tempo_override: tempo }).eq('id', sessionSongId);
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.id === sessionSongId ? { ...item, tempo_override: tempo } : item
+      ),
+    }));
+  },
+
+  /** Save paths to song_form.drawing_data (base layer) */
+  updateBaseLayer: async (songFormId: string, paths: unknown[]) => {
+    await supabase.from('song_forms').update({ drawing_data: paths }).eq('id', songFormId);
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.song_form_id === songFormId && item.song_form
+          ? { ...item, song_form: { ...item.song_form, drawing_data: paths } }
+          : item
+      ),
+    }));
+  },
+
+  /** Upsert user's session layer */
+  upsertMyLayer: async (sessionId: string, songFormId: string, paths: unknown[]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { layers } = get();
+    const existing = layers.find(
+      (l) => l.song_form_id === songFormId && l.created_by === user.id
+    );
+    const nextVersion = (existing?.version_number ?? 0) + 1;
+    const row = {
+      session_id: sessionId,
+      song_form_id: songFormId,
+      drawing_data: paths,
+      version_number: nextVersion,
+      created_by: user.id,
+    };
+    await supabase.from('session_layers').insert(row);
+    const newLayer: SessionLayer = {
+      id: `${user.id}-${songFormId}-${nextVersion}`,
+      session_id: sessionId,
+      song_form_id: songFormId,
+      created_by: user.id,
+      version_number: nextVersion,
+      drawing_data: paths,
+      created_at: new Date().toISOString(),
+    };
+    set((state) => {
+      const filtered = state.layers.filter(
+        (l) => !(l.song_form_id === songFormId && l.created_by === user.id)
+      );
+      return { layers: [newLayer, ...filtered] };
+    });
   },
 
   /**

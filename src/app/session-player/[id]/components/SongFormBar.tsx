@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { SongForm, SongSection, normalizeFlow } from '@/types';
 import { getSectionLabel } from '@/components/SongFormBuilder';
+import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
 
 const SECTION_COLORS: Record<string, string> = {
   I: 'bg-neutral-600 text-neutral-100',
@@ -19,11 +20,40 @@ function getSectionColor(type: string) {
 interface SongFormBarProps {
   form: SongForm | null;
   sheetTempo?: number;
+  sessionSongId?: string;
+  sessionTempo?: number | null;
+  isCreator?: boolean;
   layerCount?: number;
   onLayerOpen?: () => void;
 }
 
-export function SongFormBar({ form, sheetTempo, layerCount = 0, onLayerOpen }: SongFormBarProps) {
+export function SongFormBar({
+  form, sheetTempo, sessionSongId, sessionTempo, isCreator,
+  layerCount = 0, onLayerOpen,
+}: SongFormBarProps) {
+  const { updateSessionTempo } = useSessionPlayerStore();
+  const [editingTempo, setEditingTempo] = useState(false);
+  const [tempInput, setTempInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Priority: session override → song_form → sheet
+  const displayTempo = sessionTempo ?? form?.tempo ?? sheetTempo;
+
+  useEffect(() => {
+    if (editingTempo) {
+      setTempInput(String(displayTempo ?? ''));
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [editingTempo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveTempo = async () => {
+    if (!sessionSongId) { setEditingTempo(false); return; }
+    const val = parseInt(tempInput, 10);
+    const next = isNaN(val) || val <= 0 ? null : val;
+    await updateSessionTempo(sessionSongId, next);
+    setEditingTempo(false);
+  };
+
   const sections = (form?.sections ?? []) as SongSection[];
   const normFlow = normalizeFlow(
     form?.flow?.length ? form.flow : sections.map((s) => ({ id: s.id }))
@@ -41,41 +71,71 @@ export function SongFormBar({ form, sheetTempo, layerCount = 0, onLayerOpen }: S
     <div className="flex-shrink-0 bg-neutral-900 px-3 py-2 flex items-center gap-2">
       {/* Scrollable flow */}
       <div className="flex-1 overflow-x-auto min-w-0">
-      <div className="flex items-center gap-1.5 min-w-max">
-        <span className="text-[11px] text-neutral-500 font-medium">송폼</span>
-        <span className="text-neutral-600 text-xs select-none">|</span>
-        {isEmpty && (
-          <span className="text-xs text-neutral-600">없음</span>
-        )}
-        {(form?.tempo ?? sheetTempo) && (
-          <>
-            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-700 text-white whitespace-nowrap">
-              ♩{form?.tempo ?? sheetTempo}
-            </span>
-            <span className="text-neutral-600 text-xs select-none">|</span>
-          </>
-        )}
-        {!isEmpty && form?.key && (
-          <>
-            <span className="text-xs font-bold text-primary-400">{form.key}</span>
-            <span className="text-neutral-600 text-xs select-none">|</span>
-          </>
-        )}
-        {!isEmpty && displayFlow.map(({ section: s, repeat }, i) => (
-          <React.Fragment key={`${s.id}-${i}`}>
-            {i > 0 && <span className="text-neutral-600 text-xs select-none">—</span>}
-            <span className={`px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${getSectionColor(s.type)}`}>
-              {s.sectionKey && (
-                <span className="mr-0.5 text-[10px] font-bold opacity-80">
-                  {s.sectionKey}
-                </span>
-              )}
-              {getSectionLabel(sections, s.id)}
-              {repeat > 1 ? ` ×${repeat}` : ''}
-            </span>
-          </React.Fragment>
-        ))}
-      </div>
+        <div className="flex items-center gap-1.5 min-w-max">
+          <span className="text-[11px] text-neutral-500 font-medium">송폼</span>
+          <span className="text-neutral-600 text-xs select-none">|</span>
+
+          {/* Tempo badge */}
+          {editingTempo ? (
+            <input
+              ref={inputRef}
+              type="number"
+              value={tempInput}
+              onChange={(e) => setTempInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveTempo();
+                if (e.key === 'Escape') setEditingTempo(false);
+              }}
+              onBlur={saveTempo}
+              className="w-16 px-1.5 py-0.5 rounded text-xs bg-neutral-700 text-white border border-orange-500 outline-none"
+              placeholder="BPM"
+            />
+          ) : (
+            <>
+              {displayTempo ? (
+                <button
+                  onClick={() => isCreator && setEditingTempo(true)}
+                  className={`px-2 py-0.5 rounded text-xs font-semibold bg-orange-700 text-white whitespace-nowrap ${isCreator ? 'hover:bg-orange-600 active:bg-orange-500' : ''}`}
+                >
+                  ♩{displayTempo}
+                </button>
+              ) : isCreator && sessionSongId ? (
+                <button
+                  onClick={() => setEditingTempo(true)}
+                  className="px-2 py-0.5 rounded text-xs text-neutral-600 hover:text-neutral-400 whitespace-nowrap"
+                >
+                  ♩—
+                </button>
+              ) : null}
+            </>
+          )}
+
+          {displayTempo && <span className="text-neutral-600 text-xs select-none">|</span>}
+
+          {isEmpty && (
+            <span className="text-xs text-neutral-600">없음</span>
+          )}
+          {!isEmpty && form?.key && (
+            <>
+              <span className="text-xs font-bold text-primary-400">{form.key}</span>
+              <span className="text-neutral-600 text-xs select-none">|</span>
+            </>
+          )}
+          {!isEmpty && displayFlow.map(({ section: s, repeat }, i) => (
+            <React.Fragment key={`${s.id}-${i}`}>
+              {i > 0 && <span className="text-neutral-600 text-xs select-none">—</span>}
+              <span className={`px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${getSectionColor(s.type)}`}>
+                {s.sectionKey && (
+                  <span className="mr-0.5 text-[10px] font-bold opacity-80">
+                    {s.sectionKey}
+                  </span>
+                )}
+                {getSectionLabel(sections, s.id)}
+                {repeat > 1 ? ` ×${repeat}` : ''}
+              </span>
+            </React.Fragment>
+          ))}
+        </div>
       </div>
 
       {/* Layer toggle button */}
