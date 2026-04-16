@@ -73,9 +73,11 @@ const SongFormBar: React.FC<{ form: SongForm; onEnterDrawing?: () => void }> = (
 interface SheetViewerModalProps {
   sheet: Sheet;
   onClose: () => void;
+  sessionId?: string;         // set when opened from a session
+  isSessionCreator?: boolean; // if false in session context, drawing is read-only
 }
 
-export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClose }) => {
+export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClose, sessionId, isSessionCreator }) => {
   const { updateSongForm, addSongForm } = useSheetStore();
 
   // Sheet file
@@ -113,6 +115,9 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   useEffect(() => {
     if (titleEditing) titleInputRef.current?.focus();
   }, [titleEditing]);
+
+  // Session save mode dialog
+  const [saveModeDialog, setSaveModeDialog] = useState(false);
 
   // Drawing state
   const [drawingMode, setDrawingMode] = useState(false);
@@ -204,6 +209,32 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
     return init;
   });
 
+  // Load session layers — overlay on top of song_form.drawing_data when in session context
+  useEffect(() => {
+    if (!sessionId) return;
+    const formIds = (sheet.song_forms ?? []).map(f => f.id);
+    if (!formIds.length) return;
+
+    supabase
+      .from('session_layers')
+      .select('song_form_id, drawing_data, version_number')
+      .eq('session_id', sessionId)
+      .in('song_form_id', formIds)
+      .order('version_number', { ascending: false })
+      .then(({ data }) => {
+        if (!data?.length) return;
+        // Take the latest version per form (first row since ordered desc)
+        const seen = new Set<string>();
+        for (const row of data) {
+          if (!seen.has(row.song_form_id)) {
+            seen.add(row.song_form_id);
+            drawingsByFormRef.current[row.song_form_id] = (row.drawing_data as DrawPath[]) ?? [];
+          }
+        }
+        setDrawingsByForm({ ...drawingsByFormRef.current });
+      });
+  }, [sessionId, sheet.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Undo/redo stacks — ref로 관리해서 스트로크마다 리렌더 방지
   const undoStackByFormRef = useRef<Record<string, DrawPath[][]>>({});
   const redoStackByFormRef = useRef<Record<string, DrawPath[][]>>({});
@@ -285,10 +316,51 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
 
   const handleSaveAndExit = async () => {
     if (selectedFormId) {
+      if (sessionId) {
+        // Show save mode dialog (session-only vs overwrite original)
+        setSaveModeDialog(true);
+        return;
+      }
       setSaving(true);
       const paths = drawingsByFormRef.current[selectedFormId] ?? [];
       await updateSongForm(selectedFormId, { drawing_data: paths } as never);
       setDrawingsByForm({ ...drawingsByFormRef.current }); // 탭 hasDrawing 반영
+      setSaving(false);
+    }
+    setDrawingMode(false);
+    setCancelPending(false);
+    resetZoom();
+  };
+
+  const handleSessionSave = async (mode: 'session-only' | 'overwrite') => {
+    if (!selectedFormId) return;
+    setSaveModeDialog(false);
+    setSaving(true);
+    try {
+      const paths = drawingsByFormRef.current[selectedFormId] ?? [];
+      if (mode === 'overwrite') {
+        await updateSongForm(selectedFormId, { drawing_data: paths } as never);
+      } else {
+        // Determine next version number for this (session, song_form) pair
+        const { data: existing } = await supabase
+          .from('session_layers')
+          .select('version_number')
+          .eq('session_id', sessionId!)
+          .eq('song_form_id', selectedFormId)
+          .order('version_number', { ascending: false })
+          .limit(1);
+        const nextVersion = ((existing?.[0]?.version_number) ?? 0) + 1;
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('session_layers').insert({
+          session_id: sessionId!,
+          song_form_id: selectedFormId,
+          drawing_data: paths,
+          version_number: nextVersion,
+          created_by: user!.id,
+        });
+      }
+      setDrawingsByForm({ ...drawingsByFormRef.current });
+    } finally {
       setSaving(false);
     }
     setDrawingMode(false);
@@ -548,7 +620,7 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         {/* ── 송폼 흐름 바 ── */}
         {!drawingMode && (
           selectedForm
-            ? <SongFormBar form={selectedForm} onEnterDrawing={enterDrawingMode} />
+            ? <SongFormBar form={selectedForm} onEnterDrawing={(!sessionId || isSessionCreator) ? enterDrawingMode : undefined} />
             : (
               <div className="px-5 py-3 bg-neutral-900 text-white flex-shrink-0 flex items-center gap-2">
                 <span className="text-xs text-neutral-500">송폼이 없습니다.</span>
@@ -711,6 +783,40 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                 onClick={() => setClearPending(false)}
                 className="flex-1 py-2 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
               >취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 세션 저장 방식 선택 다이얼로그 ── */}
+      {saveModeDialog && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 rounded-2xl">
+          <div className="bg-white rounded-2xl shadow-soft-lg px-6 py-5 mx-4 max-w-xs w-full space-y-4">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-neutral-900">저장 방식 선택</p>
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                세션 레이어로 저장하면 원본 악보는 변경되지 않습니다.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleSessionSave('session-only')}
+                className="w-full py-2.5 rounded-xl bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-700 transition-colors"
+              >
+                세션 레이어로 저장
+              </button>
+              <button
+                onClick={() => handleSessionSave('overwrite')}
+                className="w-full py-2.5 rounded-xl border border-error-200 bg-error-50 text-error-600 text-xs font-medium hover:bg-error-100 transition-colors"
+              >
+                원본 악보에 덮어쓰기 ⚠️
+              </button>
+              <button
+                onClick={() => setSaveModeDialog(false)}
+                className="w-full py-2 rounded-xl bg-neutral-100 text-neutral-600 text-xs font-medium hover:bg-neutral-200 transition-colors"
+              >
+                취소 (계속 수정)
+              </button>
             </div>
           </div>
         </div>
