@@ -62,11 +62,13 @@ export function SongFormBar({
 
   const saveToSongForm = async () => {
     if (!form?.id || askSaveToForm == null) return;
+    console.log('[saveToSongForm] form.id:', form.id, 'tempo:', askSaveToForm);
     setSaveFormError(null);
     try {
       await updateSongFormTempo(form.id, askSaveToForm);
       setAskSaveToForm(null);
     } catch (e) {
+      console.error('[saveToSongForm] error:', e);
       setSaveFormError(e instanceof Error ? e.message : '저장 실패');
     }
   };
