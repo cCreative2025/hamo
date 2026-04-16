@@ -5,10 +5,11 @@ import { supabase } from '@/lib/supabase';
 export interface SessionLayer {
   id: string;
   session_id: string;
+  song_form_id: string;
   created_by: string;
+  version_number: number;
   drawing_data: unknown[];
   created_at: string;
-  updated_at: string;
 }
 
 export type UserRole = 'creator' | 'member' | 'guest';
