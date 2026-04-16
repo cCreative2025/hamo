@@ -46,6 +46,14 @@ export function SongFormBar({ form, layerCount = 0, onLayerOpen }: SongFormBarPr
         {isEmpty && (
           <span className="text-xs text-neutral-600">없음</span>
         )}
+        {form?.tempo && (
+          <>
+            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-700 text-white whitespace-nowrap">
+              ♩{form.tempo}
+            </span>
+            <span className="text-neutral-600 text-xs select-none">|</span>
+          </>
+        )}
         {!isEmpty && form?.key && (
           <>
             <span className="text-xs font-bold text-primary-400">{form.key}</span>
