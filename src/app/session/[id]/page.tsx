@@ -181,9 +181,26 @@ export default function SessionDetailPage() {
 
   if (!currentSession) return null;
 
+  const saveFooter = (
+    <div className="max-w-2xl mx-auto w-full px-4 py-3 space-y-2">
+      {saveError && (
+        <p className="text-xs text-red-500 text-center bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">
+          {saveError}
+        </p>
+      )}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full py-3 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-semibold hover:opacity-80 disabled:opacity-40 transition-opacity"
+      >
+        {saving ? '저장 중...' : '저장'}
+      </button>
+    </div>
+  );
+
   return (
-    <MainLayout title="세션">
-      <div className="p-4 max-w-2xl mx-auto pb-36">
+    <MainLayout title="세션" footer={saveFooter}>
+      <div className="p-4 max-w-2xl mx-auto pb-4">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <button
@@ -311,23 +328,6 @@ export default function SessionDetailPage() {
         </section>
       </div>
 
-      {/* Sticky Save */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm border-t border-neutral-200 dark:border-neutral-700">
-        <div className="max-w-2xl mx-auto space-y-2">
-          {saveError && (
-            <p className="text-xs text-red-500 text-center bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">
-              {saveError}
-            </p>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full py-3 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-semibold hover:opacity-80 disabled:opacity-40 transition-opacity"
-          >
-            {saving ? '저장 중...' : '저장'}
-          </button>
-        </div>
-      </div>
 
       {/* Sheet Viewer Modal (session context) */}
       {viewingSheet && (
