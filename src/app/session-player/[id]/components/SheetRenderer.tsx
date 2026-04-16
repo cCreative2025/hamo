@@ -24,6 +24,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showBase, setShowBase] = useState(true);
 
   // Count unique layers for this song_form
   const songFormLayers = useMemo(
@@ -42,8 +43,8 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
     const sessionPaths = songFormLayers
       .filter((l) => visibleLayers[l.id] !== false)
       .flatMap((l) => (l.drawing_data as DrawPath[]) ?? []);
-    return [...basePaths, ...sessionPaths];
-  }, [basePaths, songFormLayers, visibleLayers]);
+    return [...(showBase ? basePaths : []), ...sessionPaths];
+  }, [basePaths, showBase, songFormLayers, visibleLayers]);
 
   useEffect(() => {
     const loadSignedUrl = async () => {
@@ -152,6 +153,8 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
           <LayerDrawer
             songFormId={item.song_form_id}
             basePaths={basePaths}
+            showBase={showBase}
+            onToggleBase={() => setShowBase((v) => !v)}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
           />
