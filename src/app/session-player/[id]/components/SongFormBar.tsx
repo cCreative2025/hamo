@@ -36,8 +36,10 @@ export function SongFormBar({
   const [tempInput, setTempInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Priority: session override → song_form → sheet
-  const displayTempo = sessionTempo ?? form?.tempo ?? sheetTempo;
+  // Priority: song_form → sheet → session (세션은 앞 두 개 없을 때 fallback)
+  const displayTempo = form?.tempo ?? sheetTempo ?? sessionTempo;
+  // 세션 편집은 song_form/sheet 템포가 없을 때만
+  const canEditTempo = isCreator && sessionSongId && !form?.tempo && !sheetTempo;
 
   useEffect(() => {
     if (editingTempo) {
@@ -94,12 +96,12 @@ export function SongFormBar({
             <>
               {displayTempo ? (
                 <button
-                  onClick={() => isCreator && setEditingTempo(true)}
-                  className={`px-2 py-0.5 rounded text-xs font-semibold bg-orange-700 text-white whitespace-nowrap ${isCreator ? 'hover:bg-orange-600 active:bg-orange-500' : ''}`}
+                  onClick={() => canEditTempo && setEditingTempo(true)}
+                  className={`px-2 py-0.5 rounded text-xs font-semibold bg-orange-700 text-white whitespace-nowrap ${canEditTempo ? 'hover:bg-orange-600 active:bg-orange-500' : ''}`}
                 >
                   ♩{displayTempo}
                 </button>
-              ) : isCreator && sessionSongId ? (
+              ) : canEditTempo ? (
                 <button
                   onClick={() => setEditingTempo(true)}
                   className="px-2 py-0.5 rounded text-xs text-neutral-600 hover:text-neutral-400 whitespace-nowrap"
