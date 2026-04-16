@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PDFViewer } from '@/components/PDFViewer';
 import { DrawPath } from '@/components/DrawingCanvas';
 import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
+import { getSignedUrl } from '@/lib/signedUrlCache';
 import { SongFormBar } from './SongFormBar';
 import { ReadOnlyCanvas } from './ReadOnlyCanvas';
 import { LayerDrawer } from './LayerDrawer';
@@ -106,12 +107,8 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
           return;
         }
 
-        const res = await fetch(`/api/signed-url?path=${encodeURIComponent(activeVersion.file_path)}`);
-        const json = await res.json();
-
-        if (!res.ok || !json.signedUrl) throw new Error(json.error ?? '서명된 URL을 생성할 수 없습니다');
-
-        setSignedUrl(json.signedUrl);
+        const url = await getSignedUrl(activeVersion.file_path);
+        setSignedUrl(url);
         setFileType(activeVersion.file_type);
       } catch (err) {
         const message = err instanceof Error ? err.message : '악보를 불러올 수 없습니다';

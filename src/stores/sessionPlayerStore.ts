@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Session, SessionItem, User } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { prefetchSignedUrls, clearSignedUrlCache } from '@/lib/signedUrlCache';
 
 export interface SessionLayer {
   id: string;
@@ -161,10 +162,12 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       // Determine user role
       const userRole = determineUserRole(sessionData as Session, currentUser, isGuest);
 
+      const items = (itemsData || []) as unknown as SessionItem[];
+
       set({
         sessionId,
         session: sessionData as Session,
-        items: (itemsData || []) as unknown as SessionItem[],
+        items,
         currentIndex: sessionData.current_song_index || 0,
         userRole,
         currentUser,
@@ -178,6 +181,16 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
         return acc;
       }, {} as Record<string, boolean>);
       set({ visibleLayers });
+
+      // Prefetch signed URLs for all song sheets in background
+      const filePaths = items
+        .flatMap((item) => {
+          const versions = (item.sheet?.sheet_versions ?? []);
+          if (versions.length === 0) return [];
+          const latest = versions.slice().sort((a, b) => b.version_number - a.version_number)[0];
+          return latest?.file_path ? [latest.file_path] : [];
+        });
+      if (filePaths.length > 0) prefetchSignedUrls(filePaths);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to initialize session';
       set({ error: message, isLoading: false });
@@ -298,6 +311,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     if (state.realtimeChannel) {
       supabase.removeChannel(state.realtimeChannel);
     }
+    clearSignedUrlCache();
     set({
       sessionId: null,
       session: null,
