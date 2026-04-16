@@ -460,9 +460,12 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
   };
 
   // Save current drawing as a new session layer version
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const saveToSessionLayer = async () => {
     if (!selectedFormId || !sessionId) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const paths = drawingsByFormRef.current[selectedFormId] ?? [];
       const formVersions = sessionLayerVersions.filter(v => v.song_form_id === selectedFormId);
@@ -475,10 +478,14 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
         created_by: user!.id,
         created_at: new Date().toISOString(),
       };
-      await supabase.from('session_layers').insert({ ...newRow, session_id: sessionId });
+      const { error } = await supabase.from('session_layers').insert({ ...newRow, session_id: sessionId });
+      if (error) {
+        console.error('session_layers insert error:', error);
+        setSaveError(error.message);
+        return;
+      }
       setSessionLayerVersions(prev => [newRow, ...prev]);
       setDrawingsByForm({ ...drawingsByFormRef.current });
-      // No need to update otherUserLayers for self — my layer is in drawingsByForm
     } finally {
       setSaving(false);
     }
@@ -691,6 +698,13 @@ export const SheetViewerModal: React.FC<SheetViewerModalProps> = ({ sheet, onClo
                   </div>
                 )}
               </>
+            )}
+
+            {/* 저장 에러 */}
+            {drawingMode && saveError && !cancelPending && (
+              <span className="text-xs text-red-400 max-w-48 truncate" title={saveError}>
+                저장 실패: {saveError}
+              </span>
             )}
 
             {/* 취소 확인 */}

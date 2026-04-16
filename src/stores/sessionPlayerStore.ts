@@ -277,16 +277,42 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       .channel(`session:${sessionId}`)
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'sessions',
-          filter: `id=eq.${sessionId}`,
-        },
+        { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
         (payload: any) => {
           if (payload.new.current_song_index !== undefined) {
             set({ currentIndex: payload.new.current_song_index });
           }
+        }
+      )
+      // 다른 팀원이 내 레이어를 처음 저장 (INSERT)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'session_layers', filter: `session_id=eq.${sessionId}` },
+        (payload: any) => {
+          const newLayer = payload.new as SessionLayer;
+          const { currentUser } = get();
+          if (newLayer.created_by === currentUser?.id) return; // 내 것은 이미 로컬에 반영됨
+          set((state) => ({
+            layers: [newLayer, ...state.layers.filter(
+              (l) => !(l.session_song_id === newLayer.session_song_id && l.created_by === newLayer.created_by)
+            )],
+            visibleLayers: { ...state.visibleLayers, [newLayer.id]: false },
+          }));
+        }
+      )
+      // 다른 팀원이 기존 레이어를 수정 (UPDATE)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'session_layers', filter: `session_id=eq.${sessionId}` },
+        (payload: any) => {
+          const updated = payload.new as SessionLayer;
+          const { currentUser } = get();
+          if (updated.created_by === currentUser?.id) return; // 내 것은 이미 로컬에 반영됨
+          set((state) => ({
+            layers: state.layers.map((l) =>
+              l.id === updated.id ? { ...l, drawing_data: updated.drawing_data } : l
+            ),
+          }));
         }
       )
       .subscribe((status) => {
@@ -389,50 +415,64 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     }));
   },
 
-  /** Upsert user's session layer (내 레이어 — 세션에 종속, song_form 불필요) */
+  /** Upsert user's session layer — one row per user per session song */
   upsertMyLayer: async (sessionId: string, sessionSongId: string, paths: unknown[], isGuest: boolean, songFormId?: string | null) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { layers } = get();
-    const existing = layers.find(
-      (l) => l.session_song_id === sessionSongId && l.created_by === user.id
-    );
-    const nextVersion = (existing?.version_number ?? 0) + 1;
-    const row: Record<string, unknown> = {
-      session_id: sessionId,
-      session_song_id: sessionSongId,
-      drawing_data: paths,
-      version_number: nextVersion,
-      created_by: user.id,
-      is_guest: isGuest,
-    };
-    if (songFormId) row.song_form_id = songFormId;
-    const { data: inserted, error } = await supabase
+
+    // Always check DB — local state may be stale after navigation or reload
+    const { data: existing } = await supabase
       .from('session_layers')
-      .insert(row)
-      .select('id, created_at')
-      .single();
-    if (error) throw new Error(error.message);
-    const newLayer: SessionLayer = {
-      id: inserted.id,
-      session_id: sessionId,
-      session_song_id: sessionSongId,
-      song_form_id: songFormId ?? null,
-      created_by: user.id,
-      version_number: nextVersion,
-      drawing_data: paths,
-      is_guest: isGuest,
-      created_at: inserted.created_at,
-    };
-    set((state) => {
-      const filtered = state.layers.filter(
-        (l) => !(l.session_song_id === sessionSongId && l.created_by === user.id)
-      );
-      return {
-        layers: [newLayer, ...filtered],
-        visibleLayers: { ...state.visibleLayers, [inserted.id]: true },
+      .select('id, song_form_id, created_at')
+      .eq('session_song_id', sessionSongId)
+      .eq('created_by', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      // UPDATE — same row, no history accumulation
+      const { error } = await supabase
+        .from('session_layers')
+        .update({ drawing_data: paths, song_form_id: songFormId ?? existing.song_form_id })
+        .eq('id', existing.id);
+      if (error) throw new Error(error.message);
+      set((state) => ({
+        layers: state.layers.map((l) =>
+          l.id === existing.id ? { ...l, drawing_data: paths } : l
+        ),
+      }));
+    } else {
+      // INSERT first-time layer
+      const { data: inserted, error } = await supabase
+        .from('session_layers')
+        .insert({
+          session_id: sessionId,
+          session_song_id: sessionSongId,
+          drawing_data: paths,
+          version_number: 1,
+          created_by: user.id,
+          is_guest: isGuest,
+          song_form_id: songFormId ?? null,
+        })
+        .select('id, created_at')
+        .single();
+      if (error) throw new Error(error.message);
+      const newLayer: SessionLayer = {
+        id: inserted.id,
+        session_id: sessionId,
+        session_song_id: sessionSongId,
+        song_form_id: songFormId ?? null,
+        created_by: user.id,
+        version_number: 1,
+        drawing_data: paths,
+        is_guest: isGuest,
+        created_at: inserted.created_at,
       };
-    });
+      set((state) => ({
+        layers: [newLayer, ...state.layers],
+        visibleLayers: { ...state.visibleLayers, [inserted.id]: true },
+      }));
+    }
   },
 
   /**
