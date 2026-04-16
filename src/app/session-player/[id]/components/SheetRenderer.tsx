@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
-import { SessionItem, SheetVersion } from '@/types';
+import { SessionItem, SheetVersion, normalizeFlow } from '@/types';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PDFViewer } from '@/components/PDFViewer';
 import { DrawingCanvas, DrawPath } from '@/components/DrawingCanvas';
@@ -85,7 +85,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
       key: f?.key ?? '',
       tempo: (f?.tempo as number | undefined) ?? '',
       sections: (f?.sections as any) ?? [],
-      flow: (f?.flow as any) ?? [],
+      flow: normalizeFlow(f?.flow),
       memo: (f?.memo as string | undefined) ?? '',
     });
     setFormSaveError(null);
