@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/MainLayout';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -19,13 +19,15 @@ export default function SessionsPage() {
   const [name, setName] = useState('');
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const creatingRef = useRef(false);
 
   useEffect(() => {
     if (currentUser) loadSessions();
-  }, [currentUser, loadSessions]);
+  }, [currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreate = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || creatingRef.current) return;
+    creatingRef.current = true;
     setCreating(true);
     try {
       const session = await createSession(name.trim());
@@ -33,6 +35,7 @@ export default function SessionsPage() {
       setName('');
       router.push(`/session/${session.id}`);
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   };
