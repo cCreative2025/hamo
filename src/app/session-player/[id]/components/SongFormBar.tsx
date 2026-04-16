@@ -18,11 +18,12 @@ function getSectionColor(type: string) {
 
 interface SongFormBarProps {
   form: SongForm | null;
+  sheetTempo?: number;
   layerCount?: number;
   onLayerOpen?: () => void;
 }
 
-export function SongFormBar({ form, layerCount = 0, onLayerOpen }: SongFormBarProps) {
+export function SongFormBar({ form, sheetTempo, layerCount = 0, onLayerOpen }: SongFormBarProps) {
   const sections = (form?.sections ?? []) as SongSection[];
   const normFlow = normalizeFlow(
     form?.flow?.length ? form.flow : sections.map((s) => ({ id: s.id }))
@@ -46,10 +47,10 @@ export function SongFormBar({ form, layerCount = 0, onLayerOpen }: SongFormBarPr
         {isEmpty && (
           <span className="text-xs text-neutral-600">없음</span>
         )}
-        {form?.tempo && (
+        {(form?.tempo ?? sheetTempo) && (
           <>
             <span className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-700 text-white whitespace-nowrap">
-              ♩{form.tempo}
+              ♩{form?.tempo ?? sheetTempo}
             </span>
             <span className="text-neutral-600 text-xs select-none">|</span>
           </>

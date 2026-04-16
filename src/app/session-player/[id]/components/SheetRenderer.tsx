@@ -154,6 +154,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
       {/* 송폼 진행 바 — 항상 표시 */}
       <SongFormBar
         form={item.song_form ?? null}
+        sheetTempo={(item.sheet as any)?.tempo}
         layerCount={songFormLayers.length}
         onLayerOpen={() => setDrawerOpen(true)}
       />
