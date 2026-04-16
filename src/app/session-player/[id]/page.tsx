@@ -33,7 +33,18 @@ export default function SessionPlayerPage() {
     subscribeToSession,
     unsubscribeFromSession,
     cleanup,
+    navigateLocal,
   } = useSessionPlayerStore();
+
+  // Keyboard navigation
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigateLocal(currentIndex + 1);
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navigateLocal(currentIndex - 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [currentIndex, navigateLocal]);
 
   // Initialize session on mount
   useEffect(() => {

@@ -66,9 +66,13 @@ export function LayerDrawer({ songFormId, open, onClose }: LayerDrawerProps) {
         {/* Layer list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {relevantLayers.length === 0 ? (
-            <p className="text-xs text-neutral-500 text-center py-8">
-              저장된 레이어가 없습니다
-            </p>
+            <div className="py-6 text-center space-y-2">
+              <p className="text-xs text-neutral-500">저장된 레이어가 없습니다</p>
+              <p className="text-[10px] text-neutral-700 break-all px-2">
+                전체 레이어: {layers.length}개<br />
+                이 송폼 ID: {songFormId.slice(0, 8)}…
+              </p>
+            </div>
           ) : (
             relevantLayers.map((layer) => {
               const isMe = layer.created_by === currentUser?.id;
