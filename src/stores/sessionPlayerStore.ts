@@ -320,12 +320,12 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
   /** Save tempo to song_form.tempo */
   updateSongFormTempo: async (songFormId: string, tempo: number) => {
     console.log('[updateSongFormTempo] songFormId:', songFormId, 'tempo:', tempo);
-    const { error, count } = await supabase
+    const { error, data } = await supabase
       .from('song_forms')
       .update({ tempo })
       .eq('id', songFormId)
       .select('id, tempo');
-    console.log('[updateSongFormTempo] result — error:', error, 'count:', count);
+    console.log('[updateSongFormTempo] result — error:', error, 'updated rows:', data);
     if (error) {
       console.error('[updateSongFormTempo] supabase error:', error);
       throw new Error(error.message);
