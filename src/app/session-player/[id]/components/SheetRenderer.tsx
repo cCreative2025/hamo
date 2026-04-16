@@ -26,7 +26,7 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
         // Get active sheet version from joined data
         const sheet = item.sheet;
         if (!sheet) {
-          setError('악보 정보가 없습니다');
+          setError(`[1] sheet null — sheet_id: ${item.sheet_id ?? 'none'}`);
           return;
         }
 
@@ -36,7 +36,7 @@ export function SheetRenderer({ currentIndex, item }: SheetRendererProps) {
         const activeVersion: SheetVersion | undefined = versions[0];
 
         if (!activeVersion) {
-          setError('악보 파일이 없습니다');
+          setError(`[2] sheet_versions 없음 — sheet.id: ${sheet.id}`);
           return;
         }
 
