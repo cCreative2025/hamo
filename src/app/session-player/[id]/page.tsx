@@ -52,8 +52,8 @@ export default function SessionPlayerPage() {
     };
   }, [sessionId, currentUser, isGuest, initSession, subscribeToSession, unsubscribeFromSession, cleanup]);
 
-  // Loading state
-  if (isLoading) {
+  // Loading state (isLoading OR session not yet loaded)
+  if (isLoading || (!session && !error)) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-neutral-50 dark:bg-neutral-900">
         <LoadingSpinner text="세션을 불러오는 중..." />

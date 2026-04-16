@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
@@ -21,6 +21,7 @@ interface SetlistItem {
 
 export default function GuestSessionPage() {
   const params = useParams();
+  const router = useRouter();
   const code = params.code as string;
 
   const [session, setSession] = useState<SessionInfo | null>(null);
@@ -95,6 +96,19 @@ export default function GuestSessionPage() {
             {session.status === 'active' ? '진행 중' : '완료'}
           </span>
         </div>
+      </div>
+
+      {/* Play button */}
+      <div className="max-w-lg mx-auto px-4 pt-4">
+        <button
+          onClick={() => router.push(`/session-player/${code}?guest=true`)}
+          className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-2xl py-3.5 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          합주 시작
+        </button>
       </div>
 
       {/* Setlist */}
