@@ -28,6 +28,7 @@ export default function SessionPlayerPage() {
     currentIndex,
     isLoading,
     error,
+    isFullscreen,
     initSession,
     subscribeToSession,
     unsubscribeFromSession,
@@ -85,14 +86,13 @@ export default function SessionPlayerPage() {
 
   return (
     <div className="h-screen w-screen bg-white dark:bg-neutral-900 flex flex-col overflow-hidden">
-      {/* Header */}
-      <SessionPlayerHeader session={session} currentIndex={currentIndex} items={items} />
-
-      {/* Main content */}
+      {!isFullscreen && (
+        <SessionPlayerHeader session={session} currentIndex={currentIndex} items={items} />
+      )}
       <SessionPlayerMain currentIndex={currentIndex} items={items} />
-
-      {/* Footer */}
-      <SessionPlayerFooter items={items} currentIndex={currentIndex} />
+      {!isFullscreen && (
+        <SessionPlayerFooter items={items} currentIndex={currentIndex} />
+      )}
     </div>
   );
 }

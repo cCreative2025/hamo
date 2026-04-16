@@ -131,16 +131,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       </div>
 
       {/* PDF Canvas */}
-      <div className="flex-1 overflow-auto bg-neutral-50 flex items-start justify-center p-4">
+      <div className="flex-1 min-h-0 overflow-hidden bg-neutral-50 flex items-center justify-center p-2">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center h-full w-full">
             <LoadingSpinner text="PDF 렌더링 중..." />
           </div>
         ) : (
-          <div className="relative inline-block">
+          <div className="relative flex items-center justify-center w-full h-full">
             <canvas
               ref={canvasRef}
-              className="max-w-full h-auto shadow-lg block"
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
+              className="shadow-lg"
             />
             {canvasOverlay}
           </div>

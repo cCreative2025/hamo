@@ -33,6 +33,7 @@ interface SessionPlayerStore {
   isSubscribed: boolean;
   isLoading: boolean;
   error: string | null;
+  isFullscreen: boolean;
 
   // Setters
   setSessionId: (id: string | null) => void;
@@ -47,6 +48,7 @@ interface SessionPlayerStore {
   setIsSubscribed: (subscribed: boolean) => void;
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setIsFullscreen: (v: boolean) => void;
 
   // Actions
   initSession: (sessionId: string, currentUser: User | null, isGuest: boolean) => Promise<void>;
@@ -92,6 +94,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
   isSubscribed: false,
   isLoading: false,
   error: null,
+  isFullscreen: false,
 
   setSessionId: (id) => set({ sessionId: id }),
   setSession: (session) => set({ session }),
@@ -118,6 +121,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
   setIsSubscribed: (subscribed) => set({ isSubscribed: subscribed }),
   setIsLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+  setIsFullscreen: (v) => set({ isFullscreen: v }),
 
   /**
    * Initialize session player
@@ -305,6 +309,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       realtimeChannel: null,
       isSubscribed: false,
       error: null,
+      isFullscreen: false,
     });
   },
 }));

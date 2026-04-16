@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Session, SessionItem } from '@/types';
 import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
@@ -13,8 +13,7 @@ interface SessionPlayerHeaderProps {
 
 export function SessionPlayerHeader({ session, currentIndex, items }: SessionPlayerHeaderProps) {
   const router = useRouter();
-  const { userRole, navigateLocal } = useSessionPlayerStore();
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { userRole, navigateLocal, isFullscreen, setIsFullscreen } = useSessionPlayerStore();
 
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === items.length - 1;
@@ -39,7 +38,7 @@ export function SessionPlayerHeader({ session, currentIndex, items }: SessionPla
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
+  }, [setIsFullscreen]);
 
   const currentItem = items[currentIndex];
   const itemTitle =
