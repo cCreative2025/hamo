@@ -117,14 +117,12 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
 
   return (
     <div className="w-full h-full flex flex-col bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
-      {/* 송폼 진행 바 */}
-      {item.song_form && (
-        <SongFormBar
-          form={item.song_form}
-          layerCount={songFormLayers.length}
-          onLayerOpen={() => setDrawerOpen(true)}
-        />
-      )}
+      {/* 송폼 진행 바 — 항상 표시 */}
+      <SongFormBar
+        form={item.song_form ?? null}
+        layerCount={songFormLayers.length}
+        onLayerOpen={() => setDrawerOpen(true)}
+      />
 
       {/* 악보 + 레이어 드로어 + 좌우 nav (SongFormBar 아래에만) */}
       <div className="flex-1 min-h-0 relative overflow-hidden">

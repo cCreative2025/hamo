@@ -17,15 +17,15 @@ function getSectionColor(type: string) {
 }
 
 interface SongFormBarProps {
-  form: SongForm;
+  form: SongForm | null;
   layerCount?: number;
   onLayerOpen?: () => void;
 }
 
 export function SongFormBar({ form, layerCount = 0, onLayerOpen }: SongFormBarProps) {
-  const sections = (form.sections ?? []) as SongSection[];
+  const sections = (form?.sections ?? []) as SongSection[];
   const normFlow = normalizeFlow(
-    form.flow?.length ? form.flow : sections.map((s) => ({ id: s.id }))
+    form?.flow?.length ? form.flow : sections.map((s) => ({ id: s.id }))
   );
   const displayFlow = normFlow
     .map((item) => {
@@ -34,7 +34,7 @@ export function SongFormBar({ form, layerCount = 0, onLayerOpen }: SongFormBarPr
     })
     .filter(Boolean) as { section: SongSection; repeat: number }[];
 
-  if (displayFlow.length === 0) return null;
+  const isEmpty = !form || displayFlow.length === 0;
 
   return (
     <div className="flex-shrink-0 bg-neutral-900 px-3 py-2 flex items-center gap-2">
@@ -43,13 +43,16 @@ export function SongFormBar({ form, layerCount = 0, onLayerOpen }: SongFormBarPr
       <div className="flex items-center gap-1.5 min-w-max">
         <span className="text-[11px] text-neutral-500 font-medium">송폼</span>
         <span className="text-neutral-600 text-xs select-none">|</span>
-        {form.key && (
+        {isEmpty && (
+          <span className="text-xs text-neutral-600">송폼 없음</span>
+        )}
+        {!isEmpty && form?.key && (
           <>
             <span className="text-xs font-bold text-primary-400">{form.key}</span>
             <span className="text-neutral-600 text-xs select-none">|</span>
           </>
         )}
-        {displayFlow.map(({ section: s, repeat }, i) => (
+        {!isEmpty && displayFlow.map(({ section: s, repeat }, i) => (
           <React.Fragment key={`${s.id}-${i}`}>
             {i > 0 && <span className="text-neutral-600 text-xs select-none">—</span>}
             <span className={`px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${getSectionColor(s.type)}`}>
