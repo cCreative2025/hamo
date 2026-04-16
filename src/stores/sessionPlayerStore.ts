@@ -60,6 +60,7 @@ interface SessionPlayerStore {
   unsubscribeFromSession: () => void;
   cleanup: () => void;
   updateSessionTempo: (sessionSongId: string, tempo: number | null) => Promise<void>;
+  updateSongFormTempo: (songFormId: string, tempo: number) => Promise<void>;
   updateBaseLayer: (songFormId: string, paths: unknown[]) => Promise<void>;
   upsertMyLayer: (sessionId: string, songFormId: string, paths: unknown[]) => Promise<void>;
 }
@@ -312,6 +313,18 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     set((state) => ({
       items: state.items.map((item) =>
         item.id === sessionSongId ? { ...item, tempo_override: tempo } : item
+      ),
+    }));
+  },
+
+  /** Save tempo to song_form.tempo */
+  updateSongFormTempo: async (songFormId: string, tempo: number) => {
+    await supabase.from('song_forms').update({ tempo }).eq('id', songFormId);
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.song_form_id === songFormId && item.song_form
+          ? { ...item, song_form: { ...item.song_form, tempo } }
+          : item
       ),
     }));
   },

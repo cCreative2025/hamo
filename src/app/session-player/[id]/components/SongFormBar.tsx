@@ -32,14 +32,15 @@ export function SongFormBar({
   form, sheetTempo, sessionSongId, sessionTempo, isCreator,
   layerCount = 0, onLayerOpen,
 }: SongFormBarProps) {
-  const { updateSessionTempo } = useSessionPlayerStore();
+  const { updateSessionTempo, updateSongFormTempo } = useSessionPlayerStore();
   const [editingTempo, setEditingTempo] = useState(false);
   const [tempInput, setTempInput] = useState('');
   const [askSaveToForm, setAskSaveToForm] = useState<number | null>(null); // pending BPM value
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Priority: song_form → sheet → session fallback
-  const displayTempo = form?.tempo ?? sheetTempo ?? sessionTempo;
+  // 세션 override가 있으면 최우선 표시 (사용자가 명시적으로 바꾼 것)
+  // 없으면 song_form → sheet 순
+  const displayTempo = sessionTempo ?? form?.tempo ?? sheetTempo;
 
   useEffect(() => {
     if (editingTempo) {
@@ -60,7 +61,7 @@ export function SongFormBar({
 
   const saveToSongForm = async () => {
     if (!form?.id || askSaveToForm == null) return;
-    await supabase.from('song_forms').update({ tempo: askSaveToForm }).eq('id', form.id);
+    await updateSongFormTempo(form.id, askSaveToForm);
     setAskSaveToForm(null);
   };
 
@@ -91,10 +92,12 @@ export function SongFormBar({
               <input
                 ref={inputRef}
                 type="number"
+                inputMode="numeric"
+                enterKeyHint="done"
                 value={tempInput}
                 onChange={(e) => setTempInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveTempo();
+                  if (e.key === 'Enter') { e.preventDefault(); saveTempo(); }
                   if (e.key === 'Escape') setEditingTempo(false);
                 }}
                 onBlur={saveTempo}
