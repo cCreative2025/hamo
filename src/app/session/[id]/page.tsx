@@ -28,6 +28,7 @@ export default function SessionDetailPage() {
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Add menu: which gap index to insert at (null = closed)
   const [addMenuIndex, setAddMenuIndex] = useState<number | null>(null);
@@ -145,8 +146,11 @@ export default function SessionDetailPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await saveItems(sessionId, selectedTeamId, draftItems);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : '저장 실패');
     } finally {
       setSaving(false);
     }
@@ -299,7 +303,12 @@ export default function SessionDetailPage() {
 
       {/* Sticky Save */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm border-t border-neutral-200 dark:border-neutral-700">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-2">
+          {saveError && (
+            <p className="text-xs text-red-500 text-center bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">
+              {saveError}
+            </p>
+          )}
           <button
             onClick={handleSave}
             disabled={saving}
