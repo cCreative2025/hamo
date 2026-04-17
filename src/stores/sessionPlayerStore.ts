@@ -307,10 +307,25 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
         (payload: any) => {
           const updated = payload.new as SessionLayer;
           const { currentUser } = get();
-          if (updated.created_by === currentUser?.id) return; // 내 것은 이미 로컬에 반영됨
+          if (updated.created_by === currentUser?.id) return;
           set((state) => ({
             layers: state.layers.map((l) =>
               l.id === updated.id ? { ...l, drawing_data: updated.drawing_data } : l
+            ),
+          }));
+        }
+      )
+      // 송폼 변경 (리더가 key/sections/flow 수정 → 팀원 실시간 반영)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'song_forms' },
+        (payload: any) => {
+          const updated = payload.new;
+          set((state) => ({
+            items: state.items.map((item) =>
+              item.song_form_id === updated.id && item.song_form
+                ? { ...item, song_form: { ...item.song_form, ...updated } }
+                : item
             ),
           }));
         }
