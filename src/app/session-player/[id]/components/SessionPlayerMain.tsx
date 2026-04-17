@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef, useCallback, useState } from 'react';
+import React, { useMemo, useRef, useCallback, useEffect, useState } from 'react';
 import { SessionItem } from '@/types';
 import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
 import { SheetRenderer } from './SheetRenderer';
@@ -11,72 +11,187 @@ interface SessionPlayerMainProps {
   items: SessionItem[];
 }
 
+// ── 단일 슬롯 렌더러 ──────────────────────────────────────────────────────────
+function ItemSlot({ item, navProps }: { item: SessionItem | null; navProps?: NavProps }) {
+  if (!item) {
+    // 엣지 슬롯 (첫/마지막 페이지 밖)
+    return <div className="w-full h-full bg-neutral-200 dark:bg-neutral-800" />;
+  }
+  if (item.type === 'ment') {
+    return <MentDisplay item={item} />;
+  }
+  return <SheetRenderer item={item} currentIndex={0} navProps={navProps} />;
+}
+
+// ── SessionPlayerMain ─────────────────────────────────────────────────────────
 export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProps) {
   const { navigateLocal, isFullscreen, setIsFullscreen } = useSessionPlayerStore();
-  const currentItem = useMemo(() => items[currentIndex], [items, currentIndex]);
   const [showNav, setShowNav] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const slideRef = useRef<HTMLDivElement>(null);
+
+  // 스태일 클로저 방지용 refs
+  const currentIndexRef = useRef(currentIndex);
+  const isFirstRef = useRef(false);
+  const isLastRef = useRef(false);
+  const navigateRef = useRef(navigateLocal);
+  const navigatingRef = useRef(false); // 애니메이션 중 중복 방지
+
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+  useEffect(() => { isFirstRef.current = currentIndex === 0; }, [currentIndex]);
+  useEffect(() => { isLastRef.current = currentIndex === items.length - 1; }, [currentIndex, items.length]);
+  useEffect(() => { navigateRef.current = navigateLocal; }, [navigateLocal]);
 
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === items.length - 1;
 
-  // Swipe detection
-  const touchStartX = useRef<number | null>(null);
-  const SWIPE_THRESHOLD = 50;
+  const prevItem = items[currentIndex - 1] ?? null;
+  const currentItem = items[currentIndex];
+  const nextItem = items[currentIndex + 1] ?? null;
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+  // ── 슬라이드 transform 적용 ──────────────────────────────────────────────────
+  const applyTransform = useCallback((offsetPx: number, animated: boolean) => {
+    const el = slideRef.current;
+    if (!el) return;
+    el.style.transition = animated
+      ? 'transform 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      : 'none';
+    el.style.transform = `translateX(calc(-33.3333% + ${offsetPx}px))`;
   }, []);
 
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (dx < -SWIPE_THRESHOLD) navigateLocal(currentIndex + 1);
-    else if (dx > SWIPE_THRESHOLD) navigateLocal(currentIndex - 1);
-  }, [currentIndex, navigateLocal]);
+  // currentIndex 변경(네비게이션 완료) 시 즉시 center 위치로 복귀
+  useEffect(() => {
+    applyTransform(0, false);
+  }, [currentIndex, applyTransform]);
+
+  // ── 터치 드래그 핸들러 (native — passive: true, 60fps) ─────────────────────
+  const dragging = useRef(false);
+  const startTouchX = useRef(0);
+  const lastDragX = useRef(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1 || navigatingRef.current) return;
+      dragging.current = true;
+      startTouchX.current = e.touches[0].clientX;
+      lastDragX.current = 0;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!dragging.current || e.touches.length !== 1) return;
+      const raw = e.touches[0].clientX - startTouchX.current;
+      // 엣지에서 rubber-band (인접 페이지 없을 때)
+      let dx = raw;
+      if (raw > 0 && isFirstRef.current) dx = Math.min(raw * 0.25, 50);
+      if (raw < 0 && isLastRef.current) dx = Math.max(raw * 0.25, -50);
+      lastDragX.current = dx;
+      applyTransform(dx, false);
+    };
+
+    const onTouchEnd = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      const dx = lastDragX.current;
+      const w = container.offsetWidth;
+      const THRESHOLD = w * 0.22; // 22% of screen width
+
+      if (dx < -THRESHOLD && !isLastRef.current) {
+        navigatingRef.current = true;
+        applyTransform(-w, true);
+        setTimeout(() => {
+          navigateRef.current(currentIndexRef.current + 1);
+          navigatingRef.current = false;
+        }, 280);
+      } else if (dx > THRESHOLD && !isFirstRef.current) {
+        navigatingRef.current = true;
+        applyTransform(w, true);
+        setTimeout(() => {
+          navigateRef.current(currentIndexRef.current - 1);
+          navigatingRef.current = false;
+        }, 280);
+      } else {
+        applyTransform(0, true); // snap back
+      }
+    };
+
+    container.addEventListener('touchstart', onTouchStart, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: true });
+    container.addEventListener('touchend', onTouchEnd);
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [applyTransform]);
+
+  // ── 화살표 버튼 애니메이션 네비게이션 ───────────────────────────────────────
+  const navigateWithAnim = useCallback((direction: 'prev' | 'next') => {
+    if (navigatingRef.current) return;
+    const w = containerRef.current?.offsetWidth ?? 0;
+    navigatingRef.current = true;
+    applyTransform(direction === 'next' ? -w : w, true);
+    setTimeout(() => {
+      navigateRef.current(currentIndexRef.current + (direction === 'next' ? 1 : -1));
+      navigatingRef.current = false;
+    }, 280);
+  }, [applyTransform]);
 
   const exitFullscreen = useCallback(() => {
     document.exitFullscreen().catch(() => {});
     setIsFullscreen(false);
   }, [setIsFullscreen]);
 
-  const wrapperProps = {
-    onMouseEnter: () => setShowNav(true),
-    onMouseLeave: () => setShowNav(false),
-    onTouchStart,
-    onTouchEnd,
+  const navProps: NavProps = {
+    showNav,
+    isFirst,
+    isLast,
+    isFullscreen,
+    onPrev: () => navigateWithAnim('prev'),
+    onNext: () => navigateWithAnim('next'),
+    onExitFullscreen: exitFullscreen,
   };
 
-  // Nav props passed down — arrows render inside the sheet area only
-  const navProps = { showNav, isFirst, isLast, isFullscreen, onPrev: () => navigateLocal(currentIndex - 1), onNext: () => navigateLocal(currentIndex + 1), onExitFullscreen: exitFullscreen };
-
-  if (currentItem?.type === 'ment') {
-    return (
-      <div className="flex-1 min-h-0 relative" {...wrapperProps}>
-        <MentDisplay item={currentItem} />
-        {/* Ment nav overlay — no SongFormBar so full height is fine */}
-        <NavOverlay {...navProps} />
-      </div>
-    );
-  }
-
-  if (currentItem?.type === 'song') {
-    return (
-      <div className="flex-1 min-h-0" {...wrapperProps}>
-        <SheetRenderer currentIndex={currentIndex} item={currentItem} navProps={navProps} />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex-1 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 relative" {...wrapperProps}>
-      <p className="text-neutral-600 dark:text-neutral-400">악보가 없습니다</p>
-      <NavOverlay {...navProps} />
+    <div
+      ref={containerRef}
+      className="flex-1 min-h-0 relative overflow-hidden"
+      onMouseEnter={() => setShowNav(true)}
+      onMouseLeave={() => setShowNav(false)}
+    >
+      {/* 3-슬롯 슬라이딩 스트립 (300% 너비, 평상시 center 슬롯 표시) */}
+      <div
+        ref={slideRef}
+        className="flex h-full"
+        style={{
+          width: '300%',
+          transform: 'translateX(-33.3333%)',
+          willChange: 'transform',
+        }}
+      >
+        {/* 슬롯 1: 이전 페이지 */}
+        <div className="h-full flex-shrink-0" style={{ width: '33.3333%' }}>
+          <ItemSlot key={prevItem?.id ?? '__prev-empty'} item={prevItem} />
+        </div>
+
+        {/* 슬롯 2: 현재 페이지 */}
+        <div className="h-full flex-shrink-0" style={{ width: '33.3333%' }}>
+          <ItemSlot key={currentItem?.id} item={currentItem} navProps={navProps} />
+        </div>
+
+        {/* 슬롯 3: 다음 페이지 */}
+        <div className="h-full flex-shrink-0" style={{ width: '33.3333%' }}>
+          <ItemSlot key={nextItem?.id ?? '__next-empty'} item={nextItem} />
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── Reusable nav overlay ──────────────────────────────────────────────────────
+// ── 재사용 NavOverlay ─────────────────────────────────────────────────────────
 export interface NavProps {
   showNav: boolean;
   isFirst: boolean;

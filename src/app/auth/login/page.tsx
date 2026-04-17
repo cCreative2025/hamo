@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 
 // Zustand 스토어 직접 접근 (리액트 외부)
@@ -12,12 +12,14 @@ const AUTO_LOGIN_KEY  = 'hamo_auto_login';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, isLoading, error } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
   const [checking, setChecking] = useState(true);
+  const resetSuccess = searchParams.get('reset') === 'success';
 
   // 저장된 설정 불러오기 + 자동로그인 체크
   useEffect(() => {
@@ -137,6 +139,12 @@ export default function LoginPage() {
             ))}
           </div>
 
+          {resetSuccess && (
+            <div className="bg-success-50 text-success-700 px-4 py-3 rounded-xl text-sm">
+              비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.
+            </div>
+          )}
+
           {error && (
             <div className="bg-error-50 text-error-700 px-4 py-3 rounded-xl text-sm">
               {error}
@@ -152,12 +160,17 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-neutral-500 text-sm mt-6">
-          계정이 없으신가요?{' '}
-          <a href="/auth/signup" className="text-primary-600 hover:underline font-medium">
-            가입하기
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <a href="/auth/forgot-password" className="text-neutral-400 hover:text-neutral-600 text-sm">
+            비밀번호를 잊으셨나요?
           </a>
-        </p>
+          <p className="text-neutral-500 text-sm">
+            계정이 없으신가요?{' '}
+            <a href="/auth/signup" className="text-primary-600 hover:underline font-medium">
+              가입하기
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

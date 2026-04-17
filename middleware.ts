@@ -53,7 +53,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // 이미 인증된 사용자가 auth 페이지에 접근하면 sheets로 리다이렉트
-  if (user && request.nextUrl.pathname.startsWith('/auth/')) {
+  // 단, reset-password는 비밀번호 변경 처리를 위해 허용
+  const isResetPassword = request.nextUrl.pathname === '/auth/reset-password';
+  if (user && request.nextUrl.pathname.startsWith('/auth/') && !isResetPassword) {
     return NextResponse.redirect(new URL('/sheets', request.url));
   }
 

@@ -7,6 +7,7 @@ interface AuthStore {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  emailConfirmPending: boolean;
 
   // Actions
   setCurrentUser: (user: User | null) => void;
@@ -19,6 +20,7 @@ interface AuthStore {
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  updateProfile: (name: string) => Promise<void>;
 }
 
 const upsertProfile = async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, string>; created_at?: string }) => {
@@ -31,11 +33,12 @@ const upsertProfile = async (authUser: { id: string; email?: string | null; user
   }, { onConflict: 'id' });
 };
 
-export const useAuthStore = create<AuthStore>((set) => ({
+export const useAuthStore = create<AuthStore>((set, get) => ({
   currentUser: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true,  // 초기 auth 체크 전까지 로딩 상태 유지
   error: null,
+  emailConfirmPending: false,
 
   setCurrentUser: (user) => set({ currentUser: user }),
   setIsAuthenticated: (authenticated) => set({ isAuthenticated: authenticated }),
@@ -76,7 +79,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   signup: async (email: string, password: string, name: string) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, emailConfirmPending: false });
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -87,7 +90,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
       });
       if (error) throw error;
 
-      if (data.user) {
+      if (data.user && data.session) {
+        // 이메일 인증 없이 즉시 로그인
         await upsertProfile({ ...data.user, user_metadata: { name } });
         const user: User = {
           id: data.user.id,
@@ -95,11 +99,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
           name: name,
           created_at: data.user.created_at || new Date().toISOString(),
         };
-        set({
-          currentUser: user,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+        set({ currentUser: user, isAuthenticated: true, isLoading: false });
+      } else if (data.user && !data.session) {
+        // 이메일 인증 대기 중
+        set({ isLoading: false, emailConfirmPending: true });
       }
     } catch (error) {
       set({
@@ -124,6 +127,27 @@ export const useAuthStore = create<AuthStore>((set) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Logout failed',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  updateProfile: async (name: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error: authError } = await supabase.auth.updateUser({ data: { name } });
+      if (authError) throw authError;
+
+      const currentUser = get().currentUser;
+      if (currentUser) {
+        const { error: dbError } = await supabase.from('users').update({ name }).eq('id', currentUser.id);
+        if (dbError) throw dbError;
+        set({ currentUser: { ...currentUser, name }, isLoading: false });
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Profile update failed',
         isLoading: false,
       });
       throw error;

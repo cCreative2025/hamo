@@ -134,6 +134,20 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   const [saving, setSaving] = useState(false);
   const [clearPending, setClearPending] = useState(false);
 
+  // ── Zoom / Pan ─────────────────────────────────────────────────────────────
+  const sheetAreaRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const drawTargetRef = useRef<DrawTarget>(null);
+  const gestureRef = useRef<{
+    mode: 'pinch' | 'pan';
+    initDist: number; initScale: number; initPan: { x: number; y: number };
+    initTouchX: number; initTouchY: number;
+    initCenterX: number; initCenterY: number;
+  } | null>(null);
+  const lastTapRef = useRef(0);
+  const [zoomT, setZoomT] = useState({ scale: 1, x: 0, y: 0 });
+
   // Per-target paths (local editing state)
   const editPathsRef = useRef<DrawPath[]>([]);
   const [editPaths, setEditPaths] = useState<DrawPath[]>([]);
@@ -246,6 +260,116 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   const handleCancelDraw = () => {
     setDrawTarget(null);
   };
+
+  // ── Zoom helpers ────────────────────────────────────────────────────────────
+  const applyZoom = useCallback((s: number, x: number, y: number) => {
+    scaleRef.current = s; panRef.current = { x, y };
+    setZoomT({ scale: s, x, y });
+  }, []);
+  const resetZoom = useCallback(() => applyZoom(1, 0, 0), [applyZoom]);
+
+  // drawTarget ref 동기화 (touch 핸들러 stale closure 방지)
+  useEffect(() => { drawTargetRef.current = drawTarget; }, [drawTarget]);
+  // 드로잉 모드 진입 시 / 곡 변경 시 줌 초기화
+  useEffect(() => { if (inDrawMode) resetZoom(); }, [inDrawMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { resetZoom(); }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pinch zoom + pan (iPad/touch) + wheel zoom (데스크탑)
+  useEffect(() => {
+    const el = sheetAreaRef.current;
+    if (!el) return;
+
+    const SCALE_MAX = 5;
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    const pinchDist = (t: TouchList) =>
+      Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const pinchMid = (t: TouchList, rect: DOMRect) => ({
+      x: (t[0].clientX + t[1].clientX) / 2 - rect.left - rect.width / 2,
+      y: (t[0].clientY + t[1].clientY) / 2 - rect.top - rect.height / 2,
+    });
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (drawTargetRef.current !== null) return;
+      if (e.touches.length === 2) {
+        e.preventDefault(); e.stopPropagation();
+        const rect = el.getBoundingClientRect();
+        const c = pinchMid(e.touches, rect);
+        gestureRef.current = {
+          mode: 'pinch', initDist: pinchDist(e.touches),
+          initScale: scaleRef.current, initPan: { ...panRef.current },
+          initTouchX: 0, initTouchY: 0, initCenterX: c.x, initCenterY: c.y,
+        };
+      } else if (e.touches.length === 1 && scaleRef.current > 1) {
+        e.preventDefault(); e.stopPropagation();
+        gestureRef.current = {
+          mode: 'pan', initDist: 0,
+          initScale: scaleRef.current, initPan: { ...panRef.current },
+          initTouchX: e.touches[0].clientX, initTouchY: e.touches[0].clientY,
+          initCenterX: 0, initCenterY: 0,
+        };
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const g = gestureRef.current;
+      if (!g || drawTargetRef.current !== null) return;
+      if (g.mode === 'pinch' && e.touches.length === 2) {
+        e.preventDefault(); e.stopPropagation();
+        const newS = clamp(g.initScale * (pinchDist(e.touches) / g.initDist), 1, SCALE_MAX);
+        const d = newS / g.initScale;
+        applyZoom(
+          newS,
+          g.initCenterX - d * (g.initCenterX - g.initPan.x),
+          g.initCenterY - d * (g.initCenterY - g.initPan.y),
+        );
+      } else if (g.mode === 'pan' && e.touches.length === 1) {
+        e.preventDefault(); e.stopPropagation();
+        const rect = el.getBoundingClientRect();
+        const maxX = ((scaleRef.current - 1) / 2) * rect.width;
+        const maxY = ((scaleRef.current - 1) / 2) * rect.height;
+        applyZoom(
+          scaleRef.current,
+          clamp(g.initPan.x + e.touches[0].clientX - g.initTouchX, -maxX, maxX),
+          clamp(g.initPan.y + e.touches[0].clientY - g.initTouchY, -maxY, maxY),
+        );
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      const wasGesture = !!gestureRef.current;
+      gestureRef.current = null;
+      if (wasGesture) return; // 제스처 끝 → 단순 탭 아님
+      // 더블탭 → 줌 리셋
+      if (e.changedTouches.length === 1 && scaleRef.current > 1) {
+        const now = Date.now();
+        if (now - lastTapRef.current < 300) resetZoom();
+        lastTapRef.current = now;
+      }
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (drawTargetRef.current !== null) return;
+      e.preventDefault();
+      const newS = clamp(scaleRef.current * (e.deltaY < 0 ? 1.1 : 0.9), 1, SCALE_MAX);
+      if (newS <= 1) { applyZoom(1, 0, 0); return; }
+      const rect = el.getBoundingClientRect();
+      const cx = e.clientX - rect.left - rect.width / 2;
+      const cy = e.clientY - rect.top - rect.height / 2;
+      const d = newS / scaleRef.current;
+      applyZoom(newS, cx - d * (cx - panRef.current.x), cy - d * (cy - panRef.current.y));
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('wheel', onWheel);
+    };
+  }, [applyZoom, resetZoom]);
 
   // ── Layer data ────────────────────────────────────────────────────────────────
   // 내 레이어는 session_song_id 기준, 원본레이어 overlay용은 song_form_id 기준
@@ -443,35 +567,63 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
       )}
 
       {/* ── 악보 영역 ── */}
-      <div className="flex-1 min-h-0 relative overflow-hidden">
-        {fileType === 'pdf' ? (
-          <PDFViewer fileUrl={signedUrl} canvasOverlay={canvasOverlay} />
-        ) : (
-          <div
-            ref={imgContainerRef}
-            className="w-full h-full flex items-center justify-center overflow-hidden"
-          >
+      {/* onTouchStart/End: zoom 상태나 멀티터치면 부모 스와이프 이벤트 차단 */}
+      <div
+        ref={sheetAreaRef}
+        className="flex-1 min-h-0 relative overflow-hidden"
+        onTouchStart={(e) => { if (e.touches.length >= 2 || zoomT.scale > 1) e.stopPropagation(); }}
+        onTouchEnd={(e) => { if (zoomT.scale > 1) e.stopPropagation(); }}
+      >
+
+        {/* 줌/팬 컨테이너 */}
+        <div
+          style={{
+            transform: `translate(${zoomT.x}px, ${zoomT.y}px) scale(${zoomT.scale})`,
+            transformOrigin: 'center center',
+            width: '100%',
+            height: '100%',
+            willChange: 'transform',
+          }}
+        >
+          {fileType === 'pdf' ? (
+            <PDFViewer fileUrl={signedUrl} canvasOverlay={canvasOverlay} />
+          ) : (
             <div
-              className="relative shadow-lg flex-shrink-0"
-              style={imgDisplaySize
-                ? { width: imgDisplaySize.w, height: imgDisplaySize.h }
-                : { maxWidth: 'calc(100% - 32px)', maxHeight: 'calc(100% - 32px)' }
-              }
+              ref={imgContainerRef}
+              className="w-full h-full flex items-center justify-center overflow-hidden"
             >
-              <img
-                key={currentIndex}
-                src={signedUrl}
-                alt="악보"
-                onLoad={onImgLoad}
-                style={{ width: '100%', height: '100%', display: 'block', objectFit: 'contain' }}
-              />
-              {canvasOverlay && (
-                <div className="absolute inset-0 pointer-events-none">
-                  {canvasOverlay}
-                </div>
-              )}
+              <div
+                className="relative shadow-lg flex-shrink-0"
+                style={imgDisplaySize
+                  ? { width: imgDisplaySize.w, height: imgDisplaySize.h }
+                  : { maxWidth: 'calc(100% - 32px)', maxHeight: 'calc(100% - 32px)' }
+                }
+              >
+                <img
+                  key={item.id}
+                  src={signedUrl}
+                  alt="악보"
+                  onLoad={onImgLoad}
+                  style={{ width: '100%', height: '100%', display: 'block', objectFit: 'contain' }}
+                />
+                {canvasOverlay && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    {canvasOverlay}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* 줌 리셋 버튼 (확대 상태일 때만 표시) */}
+        {zoomT.scale > 1 && (
+          <button
+            onClick={resetZoom}
+            className="absolute top-2 right-2 z-20 bg-black/50 hover:bg-black/70 text-white text-xs font-bold rounded-full px-2.5 py-1 transition-colors select-none"
+          >
+            1:1
+          </button>
         )}
 
         {/* Layer drawer (일반 모드만) */}
@@ -481,7 +633,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
             songFormId={item.song_form_id ?? null}
             basePaths={basePaths}
             showBase={showBase}
-            onToggleBase={() => setShowBase((v) => !v)}
+            onToggleBase={() => setShowBase(!showBase)}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
             isCreator={isCreator}

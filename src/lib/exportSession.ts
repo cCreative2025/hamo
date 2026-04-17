@@ -10,7 +10,161 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-// ── 경로 그리기 ─────────────────────────────────────────────────────────────────
+const SCALE = 2;
+const HEADER_CSS_H = 44; // 화면 SongFormBar 높이(px 기준)
+
+// ── 헬퍼: 둥근 사각형 ────────────────────────────────────────────────────────────
+function ctxRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+const SECTION_BG: Record<string, string> = {
+  I: '#525252', V: '#1d4ed8', PC: '#a16207',
+  C: '#7e22ce', B: '#15803d', O: '#737373',
+};
+function getSectionBg(type: string) { return SECTION_BG[type] ?? '#6d28d9'; }
+
+// ── 송폼 메타 추출 ────────────────────────────────────────────────────────────────
+function getSongFormMeta(item: SessionItem) {
+  const form = item.song_form;
+  const title = form?.name || item.sheet?.title || '(제목 없음)';
+  const key = form?.key || '';
+  const tempo = item.tempo_override
+    ? `♩${item.tempo_override}`
+    : form?.tempo ? `♩${form.tempo}` : '';
+
+  const sections = ((form?.sections ?? []) as SongSection[]);
+  const flowItems = normalizeFlow(form?.flow as any)
+    .map((f) => {
+      const section = sections.find((s) => s.id === f.id);
+      if (!section) return null;
+      const label = getSectionLabel(sections, f.id);
+      return label ? { label, type: section.type, repeat: f.repeat ?? 1 } : null;
+    })
+    .filter(Boolean) as { label: string; type: string; repeat: number }[];
+
+  return { title, key, tempo, flowItems };
+}
+
+// ── 송폼바 헤더 Canvas 렌더링 ────────────────────────────────────────────────────
+// 화면의 SongFormBar(까만 배경 + 템포/키/곡진행 배지)를 Canvas로 그림 — 한글 정상 출력
+function renderHeaderCanvas(
+  meta: ReturnType<typeof getSongFormMeta>,
+  canvasW: number,
+): HTMLCanvasElement {
+  const S = SCALE;
+  const H = HEADER_CSS_H * S;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasW;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+
+  // 배경
+  ctx.fillStyle = '#171717';
+  ctx.fillRect(0, 0, canvasW, H);
+
+  const fs = 12 * S;
+  const pad = 10 * S;
+  const bpx = 6 * S;
+  const bpy = 3 * S;
+  const r = 4 * S;
+  const gap = 5 * S;
+  const midY = H / 2;
+  const FONT = `-apple-system, "Apple SD Gothic Neo", "Noto Sans KR", BlinkMacSystemFont, sans-serif`;
+
+  ctx.textBaseline = 'middle';
+  let x = pad;
+
+  // ── 템포 배지 (주황) ─────────────────────────────────────────────────────────
+  if (meta.tempo) {
+    ctx.font = `bold ${fs}px ${FONT}`;
+    const tw = ctx.measureText(meta.tempo).width;
+    const bw = tw + bpx * 2;
+    const bh = fs + bpy * 2;
+    ctx.fillStyle = '#c2410c';
+    ctxRoundRect(ctx, x, midY - bh / 2, bw, bh, r);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(meta.tempo, x + bpx, midY);
+    x += bw + gap;
+    ctx.fillStyle = '#3f3f3f';
+    ctx.fillRect(x, midY - 8 * S, S, 16 * S);
+    x += gap + S;
+  }
+
+  // ── 키 (파랑) ────────────────────────────────────────────────────────────────
+  if (meta.key) {
+    ctx.font = `bold ${fs}px ${FONT}`;
+    ctx.fillStyle = '#60a5fa';
+    ctx.fillText(meta.key, x, midY);
+    x += ctx.measureText(meta.key).width + gap;
+    ctx.fillStyle = '#3f3f3f';
+    ctx.fillRect(x, midY - 8 * S, S, 16 * S);
+    x += gap + S;
+  }
+
+  // ── 곡 제목 (흰색 굵게) ──────────────────────────────────────────────────────
+  ctx.font = `bold ${fs}px ${FONT}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(meta.title, x, midY);
+  x += ctx.measureText(meta.title).width + gap * 2;
+
+  // ── 곡진행 배지 ──────────────────────────────────────────────────────────────
+  for (let i = 0; i < meta.flowItems.length; i++) {
+    const { label, type, repeat } = meta.flowItems[i];
+    const badgeText = repeat > 1 ? `${label}×${repeat}` : label;
+    const bfs = 11 * S;
+    ctx.font = `bold ${bfs}px ${FONT}`;
+    const tw = ctx.measureText(badgeText).width;
+    const bw = tw + bpx * 2;
+    const bh = bfs + bpy * 2;
+
+    if (x + bw > canvasW - pad) break; // 넘치면 생략
+
+    ctx.fillStyle = getSectionBg(type);
+    ctxRoundRect(ctx, x, midY - bh / 2, bw, bh, r - S);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(badgeText, x + bpx, midY);
+    x += bw + Math.round(3 * S);
+
+    if (i < meta.flowItems.length - 1) {
+      ctx.font = `${10 * S}px ${FONT}`;
+      ctx.fillStyle = '#525252';
+      ctx.fillText('—', x, midY);
+      x += ctx.measureText('—').width + Math.round(3 * S);
+    }
+  }
+
+  return canvas;
+}
+
+// ── 헤더 + 악보 Canvas 합성 ──────────────────────────────────────────────────────
+function combineCanvases(header: HTMLCanvasElement, sheet: HTMLCanvasElement): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = sheet.width;
+  canvas.height = header.height + sheet.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(header, 0, 0);
+  ctx.drawImage(sheet, 0, header.height);
+  return canvas;
+}
+
+// ── 경로 그리기 (export용 — width를 SCALE에 맞게 스케일링) ───────────────────────
 function renderPathsOnCtx(
   ctx: CanvasRenderingContext2D,
   paths: DrawPath[],
@@ -23,7 +177,7 @@ function renderPathsOnCtx(
     ctx.globalCompositeOperation =
       path.tool === 'eraser' ? 'destination-out' : 'source-over';
     ctx.strokeStyle = path.tool === 'eraser' ? 'rgba(0,0,0,1)' : path.color;
-    ctx.lineWidth = path.width;
+    ctx.lineWidth = path.width * SCALE; // 화면 1px → export SCALE px
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -47,13 +201,13 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-// ── 악보(이미지/PDF) + 레이어 → Canvas 배열 ─────────────────────────────────────
+// ── 악보(이미지/PDF) + 레이어 + 헤더 → Canvas 배열 ─────────────────────────────
 async function renderSheetWithLayers(
   url: string,
   fileType: string,
-  paths: DrawPath[]
+  paths: DrawPath[],
+  meta: ReturnType<typeof getSongFormMeta>,
 ): Promise<HTMLCanvasElement[]> {
-  const SCALE = 2;
   const canvases: HTMLCanvasElement[] = [];
 
   if (fileType === 'pdf') {
@@ -62,67 +216,40 @@ async function renderSheetWithLayers(
       const page = await pdf.getPage(p);
       const viewport = page.getViewport({ scale: SCALE });
 
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d')!;
+      const sheetCanvas = document.createElement('canvas');
+      sheetCanvas.width = viewport.width;
+      sheetCanvas.height = viewport.height;
+      const ctx = sheetCanvas.getContext('2d')!;
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
       await page.render({ canvasContext: ctx as any, viewport }).promise;
 
       if (paths.length > 0) {
-        const layerCanvas = document.createElement('canvas');
-        layerCanvas.width = canvas.width;
-        layerCanvas.height = canvas.height;
-        renderPathsOnCtx(layerCanvas.getContext('2d')!, paths, canvas.width, canvas.height);
-        ctx.drawImage(layerCanvas, 0, 0);
+        renderPathsOnCtx(ctx, paths, sheetCanvas.width, sheetCanvas.height);
       }
-      canvases.push(canvas);
+
+      const header = renderHeaderCanvas(meta, sheetCanvas.width);
+      canvases.push(combineCanvases(header, sheetCanvas));
     }
   } else {
     const img = await loadImage(url);
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth * SCALE;
-    canvas.height = img.naturalHeight * SCALE;
-    const ctx = canvas.getContext('2d')!;
+    const sheetCanvas = document.createElement('canvas');
+    sheetCanvas.width = img.naturalWidth * SCALE;
+    sheetCanvas.height = img.naturalHeight * SCALE;
+    const ctx = sheetCanvas.getContext('2d')!;
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+    ctx.drawImage(img, 0, 0, sheetCanvas.width, sheetCanvas.height);
 
     if (paths.length > 0) {
-      const layerCanvas = document.createElement('canvas');
-      layerCanvas.width = canvas.width;
-      layerCanvas.height = canvas.height;
-      renderPathsOnCtx(layerCanvas.getContext('2d')!, paths, canvas.width, canvas.height);
-      ctx.drawImage(layerCanvas, 0, 0);
+      renderPathsOnCtx(ctx, paths, sheetCanvas.width, sheetCanvas.height);
     }
-    canvases.push(canvas);
+
+    const header = renderHeaderCanvas(meta, sheetCanvas.width);
+    canvases.push(combineCanvases(header, sheetCanvas));
   }
 
   return canvases;
-}
-
-// ── 송폼 텍스트 추출 ─────────────────────────────────────────────────────────────
-function getSongFormMeta(item: SessionItem) {
-  const form = item.song_form;
-  const title = form?.name || item.sheet?.title || '(제목 없음)';
-  const key = form?.key || '';
-  const tempo = item.tempo_override
-    ? `♩${item.tempo_override}`
-    : form?.tempo
-    ? `♩${form.tempo}`
-    : '';
-
-  const sections = ((form?.sections ?? []) as SongSection[]);
-  const flow = normalizeFlow(form?.flow as any)
-    .map((f) => {
-      const label = getSectionLabel(sections, f.id);
-      return label ? (f.repeat && f.repeat > 1 ? `${label}×${f.repeat}` : label) : null;
-    })
-    .filter(Boolean)
-    .join(' - ');
-
-  return { title, key, tempo, flow };
 }
 
 // ── 메인 export 함수 ─────────────────────────────────────────────────────────────
@@ -145,7 +272,6 @@ export async function exportSessionAsPDF(options: ExportOptions): Promise<void> 
   const PAGE_W = 210;
   const PAGE_H = 297;
   const MARGIN = 6;
-  const HEADER_H = 18;
 
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   let isFirst = true;
@@ -176,30 +302,18 @@ export async function exportSessionAsPDF(options: ExportOptions): Promise<void> 
 
     try {
       const url = await getSignedUrl(latest.file_path);
-      const canvases = await renderSheetWithLayers(url, latest.file_type, mergedPaths);
       const meta = getSongFormMeta(item);
+      const canvases = await renderSheetWithLayers(url, latest.file_type, mergedPaths, meta);
 
       for (const canvas of canvases) {
         if (!isFirst) pdf.addPage();
         isFirst = false;
 
-        // 송폼 헤더
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(meta.title, MARGIN, 8);
-
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'normal');
-        const metaLine = [meta.key, meta.tempo].filter(Boolean).join('  ');
-        if (metaLine) pdf.text(metaLine, MARGIN, 13);
-        if (meta.flow) pdf.text(meta.flow, MARGIN, 17);
-
-        // 악보 이미지
         const imgData = canvas.toDataURL('image/jpeg', 0.92);
         const aspect = canvas.height / canvas.width;
         const imgW = PAGE_W - MARGIN * 2;
-        const imgH = Math.min(imgW * aspect, PAGE_H - HEADER_H - MARGIN);
-        pdf.addImage(imgData, 'JPEG', MARGIN, HEADER_H, imgW, imgH);
+        const imgH = Math.min(imgW * aspect, PAGE_H - MARGIN * 2);
+        pdf.addImage(imgData, 'JPEG', MARGIN, MARGIN, imgW, imgH);
       }
     } catch (e) {
       console.error('[export] item failed:', item.id, e);
