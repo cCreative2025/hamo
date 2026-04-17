@@ -271,7 +271,7 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   // drawTarget ref 동기화 (touch 핸들러 stale closure 방지)
   useEffect(() => { drawTargetRef.current = drawTarget; }, [drawTarget]);
   // 드로잉 모드 진입 시 / 곡 변경 시 줌 초기화
-  useEffect(() => { if (inDrawMode) resetZoom(); }, [inDrawMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (drawTarget !== null) resetZoom(); }, [drawTarget]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { resetZoom(); }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pinch zoom + pan (iPad/touch) + wheel zoom (데스크탑)
