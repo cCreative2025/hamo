@@ -11,7 +11,13 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 const SCALE = 2;
-const HEADER_CSS_H = 44; // 화면 SongFormBar 높이(px 기준)
+
+// PDF 레이아웃 상수
+const PAGE_W = 210;    // A4 mm
+const PAGE_H = 297;
+const MARGIN = 6;      // 상하좌우 여백 mm
+const HEADER_H_MM = 12; // 송폼바 고정 높이 (악보 크기 무관)
+const HEADER_PX_W = 1980; // 헤더 렌더링 기준 픽셀 폭 (고화질)
 
 // ── 헬퍼: 둥근 사각형 ────────────────────────────────────────────────────────────
 function ctxRoundRect(
@@ -43,9 +49,10 @@ function getSongFormMeta(item: SessionItem) {
   const form = item.song_form;
   const title = form?.name || item.sheet?.title || '(제목 없음)';
   const key = form?.key || '';
-  const tempo = item.tempo_override
-    ? `♩${item.tempo_override}`
-    : form?.tempo ? `♩${form.tempo}` : '';
+  // 앱 SongFormBar와 동일한 우선순위: 세션override > 송폼 > 악보 자체 tempo
+  const sheetTempo = (item.sheet as any)?.tempo;
+  const rawTempo = item.tempo_override ?? form?.tempo ?? sheetTempo;
+  const tempo = rawTempo ? `♩${rawTempo}` : '';
 
   const sections = ((form?.sections ?? []) as SongSection[]);
   const flowItems = normalizeFlow(form?.flow as any)
@@ -61,21 +68,23 @@ function getSongFormMeta(item: SessionItem) {
 }
 
 // ── 송폼바 헤더 Canvas 렌더링 ────────────────────────────────────────────────────
-// 화면의 SongFormBar(까만 배경 + 템포/키/곡진행 배지)를 Canvas로 그림 — 한글 정상 출력
+// canvasW, canvasH를 직접 받아 항상 고정 크기로 렌더 (악보 크기 무관)
 function renderHeaderCanvas(
   meta: ReturnType<typeof getSongFormMeta>,
   canvasW: number,
+  canvasH: number,
 ): HTMLCanvasElement {
-  const S = SCALE;
-  const H = HEADER_CSS_H * S;
   const canvas = document.createElement('canvas');
   canvas.width = canvasW;
-  canvas.height = H;
+  canvas.height = canvasH;
   const ctx = canvas.getContext('2d')!;
+
+  // 44px 기준 CSS 높이 대비 실제 픽셀 스케일 계산
+  const S = canvasH / 44;
 
   // 배경
   ctx.fillStyle = '#171717';
-  ctx.fillRect(0, 0, canvasW, H);
+  ctx.fillRect(0, 0, canvasW, canvasH);
 
   const fs = 12 * S;
   const pad = 10 * S;
@@ -83,7 +92,7 @@ function renderHeaderCanvas(
   const bpy = 3 * S;
   const r = 4 * S;
   const gap = 5 * S;
-  const midY = H / 2;
+  const midY = canvasH / 2;
   const FONT = `-apple-system, "Apple SD Gothic Neo", "Noto Sans KR", BlinkMacSystemFont, sans-serif`;
 
   ctx.textBaseline = 'middle';
@@ -151,20 +160,7 @@ function renderHeaderCanvas(
   return canvas;
 }
 
-// ── 헤더 + 악보 Canvas 합성 ──────────────────────────────────────────────────────
-function combineCanvases(header: HTMLCanvasElement, sheet: HTMLCanvasElement): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = sheet.width;
-  canvas.height = header.height + sheet.height;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(header, 0, 0);
-  ctx.drawImage(sheet, 0, header.height);
-  return canvas;
-}
-
-// ── 경로 그리기 (export용 — width를 SCALE에 맞게 스케일링) ───────────────────────
+// ── 경로 그리기 (export용) ───────────────────────────────────────────────────────
 function renderPathsOnCtx(
   ctx: CanvasRenderingContext2D,
   paths: DrawPath[],
@@ -177,7 +173,7 @@ function renderPathsOnCtx(
     ctx.globalCompositeOperation =
       path.tool === 'eraser' ? 'destination-out' : 'source-over';
     ctx.strokeStyle = path.tool === 'eraser' ? 'rgba(0,0,0,1)' : path.color;
-    ctx.lineWidth = path.width * SCALE; // 화면 1px → export SCALE px
+    ctx.lineWidth = path.width * SCALE;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -201,12 +197,11 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-// ── 악보(이미지/PDF) + 레이어 + 헤더 → Canvas 배열 ─────────────────────────────
-async function renderSheetWithLayers(
+// ── 악보(이미지/PDF) + 레이어 → 시트 Canvas 배열 (헤더 미포함) ─────────────────────
+async function renderSheetCanvases(
   url: string,
   fileType: string,
   paths: DrawPath[],
-  meta: ReturnType<typeof getSongFormMeta>,
 ): Promise<HTMLCanvasElement[]> {
   const canvases: HTMLCanvasElement[] = [];
 
@@ -227,9 +222,7 @@ async function renderSheetWithLayers(
       if (paths.length > 0) {
         renderPathsOnCtx(ctx, paths, sheetCanvas.width, sheetCanvas.height);
       }
-
-      const header = renderHeaderCanvas(meta, sheetCanvas.width);
-      canvases.push(combineCanvases(header, sheetCanvas));
+      canvases.push(sheetCanvas);
     }
   } else {
     const img = await loadImage(url);
@@ -244,9 +237,7 @@ async function renderSheetWithLayers(
     if (paths.length > 0) {
       renderPathsOnCtx(ctx, paths, sheetCanvas.width, sheetCanvas.height);
     }
-
-    const header = renderHeaderCanvas(meta, sheetCanvas.width);
-    canvases.push(combineCanvases(header, sheetCanvas));
+    canvases.push(sheetCanvas);
   }
 
   return canvases;
@@ -269,9 +260,12 @@ export async function exportSessionAsPDF(options: ExportOptions): Promise<void> 
   const songItems = items.filter((item) => item.type === 'song');
   if (songItems.length === 0) return;
 
-  const PAGE_W = 210;
-  const PAGE_H = 297;
-  const MARGIN = 6;
+  const usableW = PAGE_W - MARGIN * 2;           // 198mm
+  const sheetAreaH = PAGE_H - MARGIN * 2 - HEADER_H_MM; // 악보 영역 높이 mm
+  const sheetY = MARGIN + HEADER_H_MM;           // 악보 시작 y mm
+
+  // 헤더 렌더링에 쓸 픽셀 높이: HEADER_PX_W 기준으로 HEADER_H_MM 비율 계산
+  const HEADER_PX_H = Math.round(HEADER_PX_W * (HEADER_H_MM / usableW));
 
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   let isFirst = true;
@@ -285,11 +279,9 @@ export async function exportSessionAsPDF(options: ExportOptions): Promise<void> 
 
     // 보이는 레이어 경로 수집
     const mergedPaths: DrawPath[] = [];
-
     if (showBase && item.song_form?.drawing_data) {
       mergedPaths.push(...(item.song_form.drawing_data as DrawPath[]));
     }
-
     const itemLayers = layers.filter(
       (l) =>
         l.session_song_id === item.id ||
@@ -303,17 +295,30 @@ export async function exportSessionAsPDF(options: ExportOptions): Promise<void> 
     try {
       const url = await getSignedUrl(latest.file_path);
       const meta = getSongFormMeta(item);
-      const canvases = await renderSheetWithLayers(url, latest.file_type, mergedPaths, meta);
+      const sheetCanvases = await renderSheetCanvases(url, latest.file_type, mergedPaths);
 
-      for (const canvas of canvases) {
+      // 헤더는 항상 고정 크기 (악보와 무관)
+      const headerCanvas = renderHeaderCanvas(meta, HEADER_PX_W, HEADER_PX_H);
+      const headerData = headerCanvas.toDataURL('image/jpeg', 0.95);
+
+      for (const sheetCanvas of sheetCanvases) {
         if (!isFirst) pdf.addPage();
         isFirst = false;
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.92);
-        const aspect = canvas.height / canvas.width;
-        const imgW = PAGE_W - MARGIN * 2;
-        const imgH = Math.min(imgW * aspect, PAGE_H - MARGIN * 2);
-        pdf.addImage(imgData, 'JPEG', MARGIN, MARGIN, imgW, imgH);
+        // ── 헤더: 항상 고정 위치 + 고정 크기 ───────────────────────────────
+        pdf.addImage(headerData, 'JPEG', MARGIN, MARGIN, usableW, HEADER_H_MM);
+
+        // ── 악보: 남은 공간을 최대 너비로 채우고, 비율 유지 ─────────────────
+        const sheetAspect = sheetCanvas.height / sheetCanvas.width;
+        let sheetW = usableW;
+        let sheetH = sheetW * sheetAspect;
+        if (sheetH > sheetAreaH) {
+          sheetH = sheetAreaH;
+          sheetW = sheetH / sheetAspect;
+        }
+        const sheetX = MARGIN + (usableW - sheetW) / 2; // 중앙 정렬
+        const sheetData = sheetCanvas.toDataURL('image/jpeg', 0.92);
+        pdf.addImage(sheetData, 'JPEG', sheetX, sheetY, sheetW, sheetH);
       }
     } catch (e) {
       console.error('[export] item failed:', item.id, e);
