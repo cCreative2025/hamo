@@ -68,7 +68,9 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
   // ── 터치 드래그 핸들러 (native — passive: true, 60fps) ─────────────────────
   const dragging = useRef(false);
   const startTouchX = useRef(0);
+  const startTouchY = useRef(0);
   const lastDragX = useRef(0);
+  const dragDir = useRef<'h' | 'v' | null>(null); // h=수평(캐러셀), v=수직(통과)
 
   useEffect(() => {
     const container = containerRef.current;
@@ -78,16 +80,28 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
       if (e.touches.length !== 1 || navigatingRef.current) return;
       dragging.current = true;
       startTouchX.current = e.touches[0].clientX;
+      startTouchY.current = e.touches[0].clientY;
       lastDragX.current = 0;
+      dragDir.current = null;
     };
 
     const onTouchMove = (e: TouchEvent) => {
       if (!dragging.current || e.touches.length !== 1) return;
-      const raw = e.touches[0].clientX - startTouchX.current;
+      const rawX = e.touches[0].clientX - startTouchX.current;
+      const rawY = e.touches[0].clientY - startTouchY.current;
+
+      // 첫 5px 이후 방향 결정 (수평 or 수직)
+      if (dragDir.current === null && (Math.abs(rawX) > 5 || Math.abs(rawY) > 5)) {
+        dragDir.current = Math.abs(rawX) >= Math.abs(rawY) ? 'h' : 'v';
+      }
+      if (dragDir.current !== 'h') return; // 수직 드래그 → 캐러셀 무시
+
+      e.preventDefault(); // iOS가 터치 제스처를 가로채지 못하게 차단
+
       // 엣지에서 rubber-band (인접 페이지 없을 때)
-      let dx = raw;
-      if (raw > 0 && isFirstRef.current) dx = Math.min(raw * 0.25, 50);
-      if (raw < 0 && isLastRef.current) dx = Math.max(raw * 0.25, -50);
+      let dx = rawX;
+      if (rawX > 0 && isFirstRef.current) dx = Math.min(rawX * 0.25, 50);
+      if (rawX < 0 && isLastRef.current) dx = Math.max(rawX * 0.25, -50);
       lastDragX.current = dx;
       applyTransform(dx, false);
     };
@@ -95,6 +109,10 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
     const onTouchEnd = () => {
       if (!dragging.current) return;
       dragging.current = false;
+      const dir = dragDir.current;
+      dragDir.current = null;
+      if (dir !== 'h') return; // 수직이었으면 아무것도 안 함
+
       const dx = lastDragX.current;
       const w = container.offsetWidth;
       const THRESHOLD = w * 0.22; // 22% of screen width
@@ -119,7 +137,7 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
     };
 
     container.addEventListener('touchstart', onTouchStart, { passive: true });
-    container.addEventListener('touchmove', onTouchMove, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: false }); // iOS 제스처 차단 위해 passive: false
     container.addEventListener('touchend', onTouchEnd);
     return () => {
       container.removeEventListener('touchstart', onTouchStart);
@@ -159,6 +177,7 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
     <div
       ref={containerRef}
       className="flex-1 min-h-0 relative overflow-hidden"
+      style={{ touchAction: 'pan-y' }}
       onMouseEnter={() => setShowNav(true)}
       onMouseLeave={() => setShowNav(false)}
     >

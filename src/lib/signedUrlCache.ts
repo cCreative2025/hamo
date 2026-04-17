@@ -36,6 +36,10 @@ export function prefetchSignedUrls(filePaths: string[]): void {
   }
 }
 
+export function getCachedSignedUrl(filePath: string): string | null {
+  return cache.get(filePath) ?? null;
+}
+
 export function clearSignedUrlCache(): void {
   cache.clear();
   pending.clear();

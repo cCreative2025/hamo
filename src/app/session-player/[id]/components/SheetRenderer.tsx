@@ -8,7 +8,7 @@ import { DrawingCanvas, DrawPath } from '@/components/DrawingCanvas';
 import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSheetStore } from '@/stores/sheetStore';
-import { getSignedUrl } from '@/lib/signedUrlCache';
+import { getSignedUrl, getCachedSignedUrl } from '@/lib/signedUrlCache';
 import { SongFormBar } from './SongFormBar';
 import { ReadOnlyCanvas } from './ReadOnlyCanvas';
 import { LayerDrawer } from './LayerDrawer';
@@ -398,35 +398,40 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
 
   // ── File loading ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const loadSignedUrl = async () => {
-      setIsLoading(true);
+    const sheet = item.sheet;
+    if (!sheet) { setError(`[1] sheet null — sheet_id: ${item.sheet_id ?? 'none'}`); return; }
+
+    const versions = (sheet.sheet_versions ?? [])
+      .slice()
+      .sort((a, b) => b.version_number - a.version_number);
+    const activeVersion: SheetVersion | undefined = versions[0];
+    if (!activeVersion) { setError(`[2] sheet_versions 없음 — sheet.id: ${sheet.id}`); return; }
+
+    // 이미 캐시된 URL이 있으면 로딩 스피너 없이 즉시 표시 (넘기기 시 깜빡임 방지)
+    const cached = getCachedSignedUrl(activeVersion.file_path);
+    if (cached) {
+      setSignedUrl(cached);
+      setFileType(activeVersion.file_type);
+      setIsLoading(false);
       setError(null);
-      setSignedUrl(null);
-      setImgNatural(null);
-      setImgDisplaySize(null);
+      return;
+    }
 
-      try {
-        const sheet = item.sheet;
-        if (!sheet) { setError(`[1] sheet null — sheet_id: ${item.sheet_id ?? 'none'}`); return; }
+    setIsLoading(true);
+    setError(null);
+    setSignedUrl(null);
+    setImgNatural(null);
+    setImgDisplaySize(null);
 
-        const versions = (sheet.sheet_versions ?? [])
-          .slice()
-          .sort((a, b) => b.version_number - a.version_number);
-        const activeVersion: SheetVersion | undefined = versions[0];
-
-        if (!activeVersion) { setError(`[2] sheet_versions 없음 — sheet.id: ${sheet.id}`); return; }
-
-        const url = await getSignedUrl(activeVersion.file_path);
+    getSignedUrl(activeVersion.file_path)
+      .then((url) => {
         setSignedUrl(url);
         setFileType(activeVersion.file_type);
-      } catch (err) {
+      })
+      .catch((err) => {
         setError(err instanceof Error ? err.message : '악보를 불러올 수 없습니다');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadSignedUrl();
+      })
+      .finally(() => setIsLoading(false));
   }, [item.id, item.sheet]);
 
   if (isLoading) {
