@@ -38,6 +38,7 @@ interface SessionPlayerStore {
   isLoading: boolean;
   error: string | null;
   isFullscreen: boolean;
+  showBase: boolean; // 원본 레이어 표시 여부 (export에서도 읽음)
 
   // Setters
   setSessionId: (id: string | null) => void;
@@ -53,6 +54,7 @@ interface SessionPlayerStore {
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setIsFullscreen: (v: boolean) => void;
+  setShowBase: (v: boolean) => void;
 
   // Actions
   initSession: (sessionId: string, currentUser: User | null, isGuest: boolean) => Promise<void>;
@@ -105,6 +107,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
   isLoading: false,
   error: null,
   isFullscreen: false,
+  showBase: true,
 
   setSessionId: (id) => set({ sessionId: id }),
   setSession: (session) => set({ session }),
@@ -132,6 +135,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
   setIsFullscreen: (v) => set({ isFullscreen: v }),
+  setShowBase: (v) => set({ showBase: v }),
 
   /**
    * Initialize session player
@@ -522,6 +526,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       isSubscribed: false,
       error: null,
       isFullscreen: false,
+      showBase: true,
     });
   },
 }));

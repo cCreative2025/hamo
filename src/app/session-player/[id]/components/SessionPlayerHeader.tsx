@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Session, SessionItem } from '@/types';
 import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
+import { exportSessionAsPDF } from '@/lib/exportSession';
 
 interface SessionPlayerHeaderProps {
   session: Session;
@@ -13,7 +14,23 @@ interface SessionPlayerHeaderProps {
 
 export function SessionPlayerHeader({ session, currentIndex, items }: SessionPlayerHeaderProps) {
   const router = useRouter();
-  const { userRole, navigateLocal, isFullscreen, setIsFullscreen } = useSessionPlayerStore();
+  const { userRole, navigateLocal, isFullscreen, setIsFullscreen, layers, visibleLayers, showBase } = useSessionPlayerStore();
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await exportSessionAsPDF({
+        items,
+        layers,
+        visibleLayers,
+        showBase,
+        sessionName: session.name || session.title || '세션',
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [items, layers, visibleLayers, session]);
 
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === items.length - 1;
@@ -64,6 +81,24 @@ export function SessionPlayerHeader({ session, currentIndex, items }: SessionPla
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${roleBadgeColor}`}>
           {roleBadgeText}
         </span>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40"
+          aria-label="PDF 내보내기"
+          title="PDF 내보내기"
+        >
+          {exporting ? (
+            <svg className="w-4 h-4 text-neutral-500 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+          )}
+        </button>
         <button
           onClick={toggleFullscreen}
           className="p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors flex-shrink-0"

@@ -26,7 +26,7 @@ interface SheetRendererProps {
 type DrawTarget = 'base' | 'mine' | null;
 
 export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererProps) {
-  const { layers, visibleLayers, sessionId, session, userRole, updateBaseLayer, upsertMyLayer, updateSongFormData, createSongFormForItem } = useSessionPlayerStore();
+  const { layers, visibleLayers, sessionId, session, userRole, showBase, setShowBase, updateBaseLayer, upsertMyLayer, updateSongFormData, createSongFormForItem } = useSessionPlayerStore();
   const { currentUser } = useAuthStore();
   const { loadSheets } = useSheetStore();
   const isCreator = userRole === 'creator';
@@ -37,7 +37,6 @@ export function SheetRenderer({ currentIndex, item, navProps }: SheetRendererPro
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [showBase, setShowBase] = useState(true);
 
   // Image contain-fit sizing
   const imgContainerRef = useRef<HTMLDivElement>(null);
