@@ -26,6 +26,8 @@ function ItemSlot({ item, navProps }: { item: SessionItem | null; navProps?: Nav
 // ── SessionPlayerMain ─────────────────────────────────────────────────────────
 export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProps) {
   const { navigateLocal, isFullscreen, setIsFullscreen } = useSessionPlayerStore();
+  const isFullscreenRef = useRef(isFullscreen);
+  useEffect(() => { isFullscreenRef.current = isFullscreen; }, [isFullscreen]);
   const [showNav, setShowNav] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -77,6 +79,7 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
     if (!container) return;
 
     const onTouchStart = (e: TouchEvent) => {
+      if (!isFullscreenRef.current) return; // 확장모드에서만 스와이프 활성화
       if (e.touches.length !== 1 || navigatingRef.current) return;
       dragging.current = true;
       startTouchX.current = e.touches[0].clientX;
