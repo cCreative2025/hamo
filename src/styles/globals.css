@@ -9,6 +9,8 @@
 
 html {
   @apply scroll-smooth;
+  /* 뷰포트 핀치줌 방지 (iOS PWA 포함) — sheetAreaRef 내 커스텀 줌은 preventDefault로 별도 처리 */
+  touch-action: manipulation;
 }
 
 body {

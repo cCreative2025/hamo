@@ -43,19 +43,10 @@ export function SessionPlayerHeader({ session, currentIndex, items }: SessionPla
     if (!isLast) navigateLocal(currentIndex + 1);
   }, [isLast, currentIndex, navigateLocal]);
 
+  // iOS는 requestFullscreen() 미지원 → 앱 상태 직접 토글
   const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
-  }, []);
-
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, [setIsFullscreen]);
+    setIsFullscreen(!isFullscreen);
+  }, [isFullscreen, setIsFullscreen]);
 
   const currentItem = items[currentIndex];
   const itemTitle =

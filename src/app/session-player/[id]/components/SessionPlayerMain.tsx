@@ -162,7 +162,6 @@ export function SessionPlayerMain({ currentIndex, items }: SessionPlayerMainProp
   }, [applyTransform]);
 
   const exitFullscreen = useCallback(() => {
-    document.exitFullscreen().catch(() => {});
     setIsFullscreen(false);
   }, [setIsFullscreen]);
 
