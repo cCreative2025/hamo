@@ -72,10 +72,8 @@ export function LayerDrawer({
   }, [layers, sessionSongId, songFormId]);
 
   const myLayer = relevantLayers.find((l) => l.created_by === currentUser?.id);
-  // Guests only see their own layer; non-guests see non-guest others' layers
-  const otherLayers = isGuest
-    ? []
-    : relevantLayers.filter((l) => l.created_by !== currentUser?.id && !l.is_guest);
+  // 비게스트 팀원 레이어만 표시 (게스트 포함 누구나 볼 수 있음)
+  const otherLayers = relevantLayers.filter((l) => l.created_by !== currentUser?.id && !l.is_guest);
 
   return (
     <>
@@ -114,37 +112,41 @@ export function LayerDrawer({
             )}
           </div>
 
-          {/* ── 내 레이어 ── */}
-          <p className="text-[10px] text-neutral-600 font-semibold px-1 pt-2">내 레이어</p>
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-neutral-800">
-            {myLayer ? (
-              <>
-                <button onClick={() => toggleLayerVisibility(myLayer.id)} className="flex-shrink-0">
-                  {visibleLayers[myLayer.id] !== false ? <EyeOn /> : <EyeOff />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white">나</p>
-                  <p className="text-[10px] text-neutral-400 truncate">
-                    {formatTime(myLayer.created_at)} · {Array.isArray(myLayer.drawing_data) ? myLayer.drawing_data.length : 0}획
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <span className="flex-shrink-0">
-                  <svg className="w-4 h-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-neutral-500">비어 있음</p>
-                </div>
-              </>
-            )}
-            {isCreator && onEditMine && (
-              <EditBtn onClick={() => { onClose(); onEditMine(); }} />
-            )}
-          </div>
+          {/* ── 내 레이어 (게스트 제외) ── */}
+          {!isGuest && (
+            <>
+              <p className="text-[10px] text-neutral-600 font-semibold px-1 pt-2">내 레이어</p>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-neutral-800">
+                {myLayer ? (
+                  <>
+                    <button onClick={() => toggleLayerVisibility(myLayer.id)} className="flex-shrink-0">
+                      {visibleLayers[myLayer.id] !== false ? <EyeOn /> : <EyeOff />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white">나</p>
+                      <p className="text-[10px] text-neutral-400 truncate">
+                        {formatTime(myLayer.created_at)} · {Array.isArray(myLayer.drawing_data) ? myLayer.drawing_data.length : 0}획
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-shrink-0">
+                      <svg className="w-4 h-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-neutral-500">비어 있음</p>
+                    </div>
+                  </>
+                )}
+                {onEditMine && (
+                  <EditBtn onClick={() => { onClose(); onEditMine(); }} />
+                )}
+              </div>
+            </>
+          )}
 
           {/* ── 팀원 레이어 ── */}
           {otherLayers.length > 0 && (
