@@ -48,10 +48,14 @@ export default function SessionPlayerPage() {
 
   // Initialize session on mount
   useEffect(() => {
+    let active = true;
+
     if (sessionId) {
       initSession(sessionId, currentUser || null, isGuest)
         .then(() => {
-          subscribeToSession(sessionId);
+          if (active) {
+            subscribeToSession(sessionId);
+          }
         })
         .catch(() => {
           // Error handled in store
@@ -59,6 +63,7 @@ export default function SessionPlayerPage() {
     }
 
     return () => {
+      active = false;
       unsubscribeFromSession();
       cleanup();
     };

@@ -367,6 +367,37 @@ webpack: (config, options) => {
 - `plan.md` — Color system redesign plan
 - `implementation.md` — Changes applied (Stage 3)
 
+## Realtime Subscription Fix (2026-04-17)
+
+**Issue**: SessionPlayerPage useEffect race condition — Realtime 구독 미작동 (첫 진입)
+
+**Root Cause**:
+- useEffect 의존성 배열에 currentUser 포함
+- currentUser null → loaded 변경 시 effect 재실행
+- 1차 effect의 initSession Promise가 cleanup 이후에도 resolve 가능
+- Stale subscription 콜백이 실행되면 dedup 체크에 걸려 정상 구독 차단
+
+**Solution**: Active Flag Pattern
+- useEffect 클로저에 `let active = true` 선언
+- cleanup에서 `active = false` 설정
+- `.then()` 콜백에서 `if (active)` 체크 → stale callback 필터링
+
+**Files Modified**:
+- `src/app/session-player/[id]/page.tsx` — +3 lines (active flag)
+
+**Test Cases**:
+- [x] 로그인 직후 세션 진입 → Realtime 작동
+- [x] 송폼 변경 → UI 즉시 반영
+- [x] 레이어 변경 → UI 즉시 반영
+- [x] 재진입 → 계속 정상
+
+**Pipeline Artifacts**: `docs/20260417-realtime-subscription-fix/`
+- `spec.md` — 요구사항 분석
+- `plan.md` — 구현 계획
+- `implementation.md` — 코드 수정 및 검증
+- `review.md` — 코드 검토 (✅ 승인)
+
+**Status**: ✅ Complete
 
 ## 향후 개선 계획
 
