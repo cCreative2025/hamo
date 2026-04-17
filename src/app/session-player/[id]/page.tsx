@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useSessionPlayerStore } from '@/stores/sessionPlayerStore';
@@ -10,8 +10,7 @@ import { SessionPlayerHeader } from './components/SessionPlayerHeader';
 import { SessionPlayerMain } from './components/SessionPlayerMain';
 import { SessionPlayerFooter } from './components/SessionPlayerFooter';
 
-export default function SessionPlayerPage() {
-  // Check authentication (optional for guest)
+function SessionPlayerContent() {
   const { currentUser } = useAuthStore();
   const searchParams = useSearchParams();
   const isGuest = searchParams.get('guest') === 'true';
@@ -69,7 +68,6 @@ export default function SessionPlayerPage() {
     };
   }, [sessionId, currentUser, isGuest, initSession, subscribeToSession, unsubscribeFromSession, cleanup]);
 
-  // Loading state (isLoading OR session not yet loaded)
   if (isLoading || (!session && !error)) {
     return (
       <div className="flex items-center justify-center h-screen w-screen bg-neutral-50 dark:bg-neutral-900">
@@ -78,7 +76,6 @@ export default function SessionPlayerPage() {
     );
   }
 
-  // Error state
   if (error || !session) {
     return (
       <div className="flex flex-col items-center justify-center h-screen w-screen bg-neutral-50 dark:bg-neutral-900">
@@ -110,5 +107,13 @@ export default function SessionPlayerPage() {
         <SessionPlayerFooter items={items} currentIndex={currentIndex} />
       )}
     </div>
+  );
+}
+
+export default function SessionPlayerPage() {
+  return (
+    <Suspense>
+      <SessionPlayerContent />
+    </Suspense>
   );
 }
