@@ -273,7 +273,12 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
       return;
     }
 
-    const channel = supabase
+    // 현재 세션 아이템에 연결된 song_form_id 목록
+    const songFormIds = state.items
+      .map((item) => item.song_form_id)
+      .filter((id): id is string => !!id);
+
+    let channel = supabase
       .channel(`session:${sessionId}`)
       .on(
         'postgres_changes',
@@ -314,11 +319,14 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
             ),
           }));
         }
-      )
-      // 송폼 변경 (리더가 key/sections/flow 수정 → 팀원 실시간 반영)
-      .on(
+      );
+
+    // 송폼 변경 (리더가 key/sections/flow 수정 → 팀원 실시간 반영)
+    // 세션 아이템에 연결된 song_form_id만 필터링
+    if (songFormIds.length > 0) {
+      channel = channel.on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'song_forms' },
+        { event: 'UPDATE', schema: 'public', table: 'song_forms', filter: `id=in.(${songFormIds.join(',')})` },
         (payload: any) => {
           const updated = payload.new;
           set((state) => ({
@@ -329,8 +337,10 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
             ),
           }));
         }
-      )
-      .subscribe((status) => {
+      );
+    }
+
+    channel.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           set({ isSubscribed: true });
         } else if (status === 'CLOSED') {
