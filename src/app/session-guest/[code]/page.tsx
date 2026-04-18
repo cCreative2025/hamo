@@ -29,29 +29,54 @@ export default function GuestSessionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
   useEffect(() => {
     const load = async () => {
       try {
-        const { data: sessionData, error: sessionError } = await supabase
-          .from('sessions')
-          .select('name, status')
-          .eq('id', code)
-          .single();
+        // Single SECURITY DEFINER RPC returns { session, items, layers }.
+        const { data: bundle, error: rpcError } = await supabase
+          .rpc('guest_load_session_bundle', { p_code: code });
 
-        if (sessionError || !sessionData) {
+        if (rpcError || !bundle || typeof bundle !== 'object') {
+          setError('유효하지 않은 또는 만료된 게스트 코드입니다.');
+          return;
+        }
+
+        const typed = bundle as {
+          session: { id: string; name: string; status: string } | null;
+          items: SetlistItem[] | null;
+        };
+
+        if (!typed.session) {
           setError('세션을 찾을 수 없습니다.');
           return;
         }
 
-        setSession(sessionData);
+        setSessionId(typed.session.id);
+        setSession({ name: typed.session.name, status: typed.session.status });
 
-        const { data: itemsData } = await supabase
-          .from('session_songs')
-          .select('id, type, sequence_order, ment_text, sheet:sheets(title, artist), song_form:song_forms(name, key)')
-          .eq('session_id', code)
-          .order('sequence_order', { ascending: true });
-
-        setItems((itemsData as unknown as SetlistItem[]) ?? []);
+        // Extract top-level song_form from the nested sheet payload.
+        const normalized: SetlistItem[] = (typed.items ?? []).map((raw) => {
+          const r = raw as SetlistItem & {
+            song_form_id?: string;
+            sheet?: { title?: string; artist?: string; song_forms?: Array<{ id: string; name: string; key?: string }> };
+          };
+          const sf = r.song_form_id && r.sheet?.song_forms
+            ? r.sheet.song_forms.find((x) => x.id === r.song_form_id)
+            : undefined;
+          return {
+            id: r.id,
+            type: r.type,
+            sequence_order: r.sequence_order,
+            ment_text: r.ment_text,
+            sheet: r.sheet && (r.sheet.title || r.sheet.artist)
+              ? { title: r.sheet.title ?? '', artist: r.sheet.artist }
+              : undefined,
+            song_form: sf ? { name: sf.name, key: sf.key } : undefined,
+          };
+        });
+        setItems(normalized);
       } catch {
         setError('불러오기 실패');
       } finally {
@@ -101,7 +126,8 @@ export default function GuestSessionPage() {
       {/* Play button */}
       <div className="max-w-lg mx-auto px-4 pt-4">
         <button
-          onClick={() => router.push(`/session-player/${code}?guest=true`)}
+          onClick={() => sessionId && router.push(`/session-player/${sessionId}?guest=true&code=${encodeURIComponent(code)}`)}
+          disabled={!sessionId}
           className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-2xl py-3.5 transition-colors"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

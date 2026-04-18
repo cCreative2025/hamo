@@ -88,12 +88,25 @@ export default function SheetsPage() {
                 setUploadError(null);
                 setIsUploading(true);
                 try {
-                  // 1. Storage 업로드
-                  const ext = file.name.split('.').pop();
-                  const filePath = `${currentUser.id}/${Date.now()}.${ext}`;
+                  // 1. Storage 업로드 — sanitize path (no user-supplied filename).
+                  const ALLOWED_EXT: Record<string, string> = {
+                    'application/pdf': 'pdf',
+                    'image/png': 'png',
+                    'image/jpeg': 'jpg',
+                    'image/jpg': 'jpg',
+                    'image/webp': 'webp',
+                  };
+                  const ext = ALLOWED_EXT[file.type];
+                  if (!ext) {
+                    throw new Error('지원하지 않는 파일 형식입니다 (PDF/PNG/JPG/WEBP만 가능)');
+                  }
+                  const safeId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+                    ? crypto.randomUUID()
+                    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+                  const filePath = `${currentUser.id}/${safeId}.${ext}`;
                   const { error: storageError } = await supabase.storage
                     .from('sheets')
-                    .upload(filePath, file, { upsert: false });
+                    .upload(filePath, file, { upsert: false, contentType: file.type });
                   if (storageError) throw new Error(`파일 업로드 실패: ${storageError.message}`);
 
                   // 2. sheets 저장

@@ -7,7 +7,7 @@ import { SongFormInput, SongFormInputValue } from './SongFormInput';
 import { KeyPickerPopover } from './KeyPickerPopover';
 import { YouTubeLinkList, YtLink } from './YouTubeDialog';
 import { formatFileSize } from '@/lib/utils';
-import { FlowItem } from '@/types';
+import { FlowItem, SongSection } from '@/types';
 
 interface SheetUploaderProps {
   onUpload: (file: File, sheetData: SheetUploadData) => Promise<void>;

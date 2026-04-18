@@ -61,7 +61,7 @@ export interface SongForm {
   sheet_id: string;
   name: string;
   key?: string;
-  tempo?: number;                    // 시트 기본값 오버라이드
+  tempo?: number | null;             // 시트 기본값 오버라이드 (DB nullable)
   chord_progression?: string;       // 레거시 텍스트 (하위호환)
   sections?: SongSection[];         // 섹션 정의 (V1, V2 등)
   flow?: FlowItem[];                // 재생 순서 (반복 횟수 포함)

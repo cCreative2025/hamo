@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Button } from '@/components/Button';
+import { supabase } from '@/lib/supabase';
 
 export default function GuestJoinPage() {
   const params = useParams();
@@ -15,13 +16,21 @@ export default function GuestJoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [sessionValid, setSessionValid] = useState(false);
 
-  // Validate guest code
+  // Validate guest code via RPC (SECURITY DEFINER; filters by expiry).
   useEffect(() => {
     const validateCode = async () => {
       try {
-        // TODO: Validate guest code against Supabase
+        const { data, error: rpcError } = await supabase
+          .rpc('resolve_guest_code', { p_code: code });
+
+        const row = Array.isArray(data) ? data[0] : null;
+        if (rpcError || !row) {
+          setError('유효하지 않은 또는 만료된 세션 코드입니다');
+          setSessionValid(false);
+          return;
+        }
         setSessionValid(true);
-      } catch (err) {
+      } catch {
         setError('유효하지 않은 세션 코드입니다');
         setSessionValid(false);
       }

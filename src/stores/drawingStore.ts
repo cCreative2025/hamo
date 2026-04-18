@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { DrawingShape } from '@/types';
 
+const MAX_HISTORY = 100;
+
+function cap(history: DrawingShape[][], historyIndex: number): { history: DrawingShape[][]; historyIndex: number } {
+  if (history.length <= MAX_HISTORY) return { history, historyIndex };
+  const drop = history.length - MAX_HISTORY;
+  return {
+    history: history.slice(drop),
+    historyIndex: Math.max(0, historyIndex - drop),
+  };
+}
+
 interface DrawingStore {
   selectedTool: 'pen' | 'eraser' | 'highlighter';
   brushColor: string;
@@ -47,10 +58,11 @@ export const useDrawingStore = create<DrawingStore>((set) => ({
       const newHistory = state.history.slice(0, state.historyIndex + 1);
       newHistory.push(newShapes);
 
+      const capped = cap(newHistory, newHistory.length - 1);
       return {
         localShapes: newShapes,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history: capped.history,
+        historyIndex: capped.historyIndex,
         isDirty: true,
       };
     });
@@ -89,10 +101,11 @@ export const useDrawingStore = create<DrawingStore>((set) => ({
       const newHistory = state.history.slice(0, state.historyIndex + 1);
       newHistory.push([]);
 
+      const capped = cap(newHistory, newHistory.length - 1);
       return {
         localShapes: [],
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history: capped.history,
+        historyIndex: capped.historyIndex,
         isDirty: true,
       };
     });
@@ -103,9 +116,10 @@ export const useDrawingStore = create<DrawingStore>((set) => ({
       const newHistory = state.history.slice(0, state.historyIndex + 1);
       newHistory.push([...state.localShapes]);
 
+      const capped = cap(newHistory, newHistory.length - 1);
       return {
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history: capped.history,
+        historyIndex: capped.historyIndex,
         isDirty: false,
       };
     });

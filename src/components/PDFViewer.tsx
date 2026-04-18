@@ -26,6 +26,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const renderTaskRef = useRef<{ cancel: () => void; promise: Promise<unknown> } | null>(null);
   const [pdf, setPdf] = useState<pdfjs.PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -50,24 +51,44 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
   // Load PDF
   useEffect(() => {
-    const loadPDF = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+    let active = true;
+    const loadingTask = pdfjs.getDocument(fileUrl);
+    let pdfDoc: pdfjs.PDFDocumentProxy | null = null;
 
-        const loadingTask = pdfjs.getDocument(fileUrl);
-        const pdfDoc = await loadingTask.promise;
+    setIsLoading(true);
+    setError(null);
 
-        setPdf(pdfDoc);
-        setTotalPages(Math.min(pdfDoc.numPages, maxPages));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'PDF 로딩 실패');
-      } finally {
-        setIsLoading(false);
+    loadingTask.promise
+      .then((doc) => {
+        if (!active) {
+          doc.destroy();
+          return;
+        }
+        pdfDoc = doc;
+        setPdf(doc);
+        setTotalPages(Math.min(doc.numPages, maxPages));
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : 'PDF 로딩 실패');
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+      // Cancel any in-flight render before destroying the doc.
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch { /* ignore */ }
+        renderTaskRef.current = null;
+      }
+      if (pdfDoc) {
+        pdfDoc.destroy();
+      } else {
+        // Loading task was still in progress.
+        loadingTask.destroy();
       }
     };
-
-    loadPDF();
   }, [fileUrl, maxPages]);
 
   // Render page — re-runs when pdf, page, or container size changes
@@ -75,6 +96,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     if (!pdf || !canvasRef.current || !containerSize) return;
 
     try {
+      // Cancel previous render before starting a new one.
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch { /* ignore */ }
+        renderTaskRef.current = null;
+      }
+
       const pdfPage = await pdf.getPage(page);
       const PADDING = 16; // px padding on each side
       const availW = containerSize.w - PADDING * 2;
@@ -99,9 +126,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       canvas.style.width = `${fitScale * nativeViewport.width}px`;
       canvas.style.height = `${fitScale * nativeViewport.height}px`;
 
-      await pdfPage.render({ canvasContext: context, viewport }).promise;
-    } catch (err) {
-      console.error('페이지 렌더링 실패:', err);
+      const task = pdfPage.render({ canvasContext: context, viewport });
+      renderTaskRef.current = task;
+      try {
+        await task.promise;
+      } finally {
+        if (renderTaskRef.current === task) renderTaskRef.current = null;
+      }
+    } catch (err: unknown) {
+      // Cancelled renders throw RenderingCancelledException — ignore.
+      const name = (err as { name?: string })?.name;
+      if (name !== 'RenderingCancelledException') {
+        console.error('페이지 렌더링 실패:', err);
+      }
     }
   }, [pdf, page, containerSize]);
 
