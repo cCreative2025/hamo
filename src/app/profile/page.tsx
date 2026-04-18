@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { MainLayout } from '@/components/MainLayout';
@@ -10,9 +10,20 @@ export default function ProfilePage() {
   const { currentUser, updateProfile, isLoading, error, logout } = useAuthStore();
   const [name, setName] = useState(currentUser?.name || '');
   const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
+
+  // Redirect unauthenticated users after hydration — avoids SSG "location is not defined".
+  useEffect(() => {
+    if (!currentUser) router.replace('/auth/login');
+  }, [currentUser, router]);
 
   if (!currentUser) {
-    router.replace('/auth/login');
     return null;
   }
 
@@ -22,7 +33,8 @@ export default function ProfilePage() {
     try {
       await updateProfile(name.trim());
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaved(false), 2000);
     } catch {
       // error는 store에 저장됨
     }

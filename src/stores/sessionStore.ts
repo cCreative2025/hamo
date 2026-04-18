@@ -208,42 +208,29 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   saveItems: async (sessionId: string, teamId: string, draftItems: DraftItem[]) => {
     set({ isLoading: true, error: null });
     try {
-      // 1. Update session metadata
-      const { error: sessionError } = await supabase
-        .from('sessions')
-        .update({ team_id: teamId || null })
-        .eq('id', sessionId);
-      if (sessionError) throw sessionError;
+      // Serialize draft items to the jsonb shape expected by save_session_items RPC
+      const p_items = draftItems.map((item, i) =>
+        item.type === 'song'
+          ? {
+              type: 'song',
+              sheet_id: item.sheetId,
+              song_form_id: item.songFormId || null,
+              sequence_order: i,
+            }
+          : {
+              type: 'ment',
+              ment_text: item.text,
+              sequence_order: i,
+            }
+      );
 
-      // 2. Delete existing items
-      const { error: deleteError } = await supabase
-        .from('session_songs')
-        .delete()
-        .eq('session_id', sessionId);
-      if (deleteError) throw deleteError;
-
-      // 3. Insert new items
-      if (draftItems.length > 0) {
-        const rows = draftItems.map((item, i) =>
-          item.type === 'song'
-            ? {
-                session_id: sessionId,
-                type: 'song',
-                sheet_id: item.sheetId,
-                song_form_id: item.songFormId || null,
-                sequence_order: i,
-              }
-            : {
-                session_id: sessionId,
-                type: 'ment',
-                ment_text: item.text,
-                sequence_order: i,
-              }
-        );
-
-        const { error: insertError } = await supabase.from('session_songs').insert(rows);
-        if (insertError) throw insertError;
-      }
+      // Single atomic RPC: UPDATE + DELETE + INSERT inside one transaction
+      const { error: rpcError } = await supabase.rpc('save_session_items', {
+        p_session_id: sessionId,
+        p_team_id: teamId ? teamId : null,
+        p_items,
+      });
+      if (rpcError) throw rpcError;
 
       // Refresh
       await get().loadSessionWithItems(sessionId);

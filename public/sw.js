@@ -1,6 +1,9 @@
 // Service Worker for Hamo PWA
-
-const CACHE_NAME = 'hamo-v1';
+// Version is injected at build time by scripts/build-sw-version.js into
+// /sw-version.js, which sets self.SW_VERSION. Falls back to 'dev' so the
+// SW still installs in local dev before the script runs.
+try { importScripts('/sw-version.js'); } catch (_) { /* noop */ }
+const CACHE_NAME = `hamo-${self.SW_VERSION || 'dev'}`;
 const urlsToCache = [
   '/',
   '/offline.html',

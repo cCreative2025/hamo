@@ -36,19 +36,34 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 보호된 라우트 확인
-  const isProtectedRoute = [
-    '/sheets',
-    '/sessions',
-    '/teams',
-    '/session',
-    '/join',
-  ].some(route => request.nextUrl.pathname.startsWith(route));
+  const pathname = request.nextUrl.pathname;
 
-  // /join/[code] 경로는 미인증도 허용
-  const isGuestRoute = request.nextUrl.pathname.match(/^\/join\/[^/]+$/);
+  // Guest-accessible routes (no auth required):
+  //  - /join/[code]            — enter guest flow
+  //  - /session-guest/[code]   — guest-only session view
+  //  - /session-player/[id]    — only when ?guest=true (presence of guest code
+  //                              itself is validated server-side via RPC)
+  const isGuestJoinOrView =
+    /^\/join\/[^/]+$/.test(pathname) ||
+    /^\/session-guest\/[^/]+$/.test(pathname);
+  const isGuestPlayer =
+    /^\/session-player\/[^/]+$/.test(pathname) &&
+    request.nextUrl.searchParams.get('guest') === 'true';
 
-  if (isProtectedRoute && !isGuestRoute && !user) {
+  // Protected prefixes (auth required unless marked guest above).
+  // IMPORTANT: check exact segment, not prefix — '/session' must not match
+  // '/session-guest' or '/session-player'.
+  const isProtectedRoute =
+    pathname === '/sheets' || pathname.startsWith('/sheets/') ||
+    pathname === '/sessions' || pathname.startsWith('/sessions/') ||
+    pathname === '/teams' || pathname.startsWith('/teams/') ||
+    pathname === '/session' || pathname.startsWith('/session/') ||
+    pathname === '/session-player' || pathname.startsWith('/session-player/') ||
+    pathname === '/profile' || pathname.startsWith('/profile/');
+
+  const isPublicAccess = isGuestJoinOrView || isGuestPlayer;
+
+  if (isProtectedRoute && !isPublicAccess && !user) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 

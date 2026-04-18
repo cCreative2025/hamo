@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/MainLayout';
 import { Button } from '@/components/Button';
@@ -34,6 +34,13 @@ export default function TeamsPage() {
   const [joinLoading, setJoinLoading] = useState(false);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
 
   // Expanded team state
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
@@ -117,7 +124,8 @@ export default function TeamsPage() {
     if (!team.invite_code) return;
     await navigator.clipboard.writeText(team.invite_code);
     setCopiedId(team.id);
-    setTimeout(() => setCopiedId(null), 2000);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopiedId(null), 2000);
   }
 
   async function handleRegenerate(teamId: string) {

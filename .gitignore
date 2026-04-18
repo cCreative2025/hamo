@@ -14,9 +14,16 @@ out/
 build/
 dist/
 
-# Environment
-.env.local
-.env.*.local
+# Environment — ALL dotenv files stay local. Secrets must never enter git.
+.env
+.env.*
+!.env.example
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Generated service worker version (scripts/build-sw-version.js)
+/public/sw-version.js
 
 # IDE
 .vscode/

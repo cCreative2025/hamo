@@ -9,11 +9,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { SessionPlayerHeader } from './components/SessionPlayerHeader';
 import { SessionPlayerMain } from './components/SessionPlayerMain';
 import { SessionPlayerFooter } from './components/SessionPlayerFooter';
+import { setGuestCode } from '@/lib/signedUrlCache';
 
 function SessionPlayerContent() {
   const { currentUser } = useAuthStore();
   const searchParams = useSearchParams();
   const isGuest = searchParams.get('guest') === 'true';
+  const guestCode = searchParams.get('code');
+
+  // Register guest code for signed-url requests in this session.
+  useEffect(() => {
+    setGuestCode(isGuest ? guestCode : null);
+    return () => setGuestCode(null);
+  }, [isGuest, guestCode]);
 
   useAuth(!isGuest); // Protected route unless guest
 
@@ -50,9 +58,10 @@ function SessionPlayerContent() {
     let active = true;
 
     if (sessionId) {
-      initSession(sessionId, currentUser || null, isGuest)
+      initSession(sessionId, currentUser || null, isGuest, guestCode)
         .then(() => {
-          if (active) {
+          if (active && !isGuest) {
+            // Guests don't need Realtime (read-only snapshot from RPC).
             subscribeToSession(sessionId);
           }
         })
@@ -66,7 +75,7 @@ function SessionPlayerContent() {
       unsubscribeFromSession();
       cleanup();
     };
-  }, [sessionId, currentUser, isGuest, initSession, subscribeToSession, unsubscribeFromSession, cleanup]);
+  }, [sessionId, currentUser, isGuest, guestCode, initSession, subscribeToSession, unsubscribeFromSession, cleanup]);
 
   if (isLoading || (!session && !error)) {
     return (

@@ -57,7 +57,7 @@ interface SessionPlayerStore {
   setShowBase: (v: boolean) => void;
 
   // Actions
-  initSession: (sessionId: string, currentUser: User | null, isGuest: boolean) => Promise<void>;
+  initSession: (sessionId: string, currentUser: User | null, isGuest: boolean, guestCode?: string | null) => Promise<void>;
   navigateToSong: (index: number) => Promise<void>;
   navigateLocal: (index: number) => void;
   subscribeToSession: (sessionId: string) => void;
@@ -141,54 +141,75 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
    * Initialize session player
    * Loads session, items, layers, and determines user role
    */
-  initSession: async (sessionId: string, currentUser: User | null, isGuest: boolean) => {
+  initSession: async (sessionId: string, currentUser: User | null, isGuest: boolean, guestCode?: string | null) => {
     set({ isLoading: true, error: null });
     try {
-      // Load session
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .single();
+      let sessionData: Session;
+      let itemsData: unknown[];
+      let layersData: SessionLayer[];
 
-      if (sessionError) throw new Error(`Failed to load session: ${sessionError.message}`);
+      if (isGuest && guestCode) {
+        // Guest path: single SECURITY DEFINER RPC that bypasses tightened RLS
+        // after validating the guest code server-side.
+        const { data: bundle, error: rpcError } = await supabase
+          .rpc('guest_load_session_bundle', { p_code: guestCode });
 
-      // Load session items
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('session_songs')
-        .select('id, session_id, type, sequence_order, ment_text, sheet_id, song_form_id, tempo_override, created_at, sheet:sheets(id, title, artist, tempo, sheet_versions(id, file_path, file_type, page_count, version_number)), song_form:song_forms!song_form_id(id, name, key, tempo, sections, flow, drawing_data)')
-        .eq('session_id', sessionId)
-        .order('sequence_order', { ascending: true });
+        if (rpcError) throw new Error(`Failed to load guest session: ${rpcError.message}`);
+        if (!bundle || typeof bundle !== 'object') {
+          throw new Error('유효하지 않은 또는 만료된 게스트 코드입니다');
+        }
+        const typed = bundle as { session: Session; items: unknown[]; layers: SessionLayer[] };
+        if (!typed.session) {
+          throw new Error('세션을 찾을 수 없습니다');
+        }
+        sessionData = typed.session;
+        itemsData = typed.items ?? [];
+        layersData = typed.layers ?? [];
+      } else {
+        // Authenticated path — relies on RLS for access control.
+        const { data: s, error: sessionError } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('id', sessionId)
+          .single();
+        if (sessionError) throw new Error(`Failed to load session: ${sessionError.message}`);
+        sessionData = s as Session;
 
-      if (itemsError) throw new Error(`Failed to load items: ${itemsError.message}`);
+        const { data: i, error: itemsError } = await supabase
+          .from('session_songs')
+          .select('id, session_id, type, sequence_order, ment_text, sheet_id, song_form_id, tempo_override, created_at, sheet:sheets(id, title, artist, tempo, sheet_versions(id, file_path, file_type, page_count, version_number)), song_form:song_forms!song_form_id(id, name, key, tempo, sections, flow, drawing_data)')
+          .eq('session_id', sessionId)
+          .order('sequence_order', { ascending: true });
+        if (itemsError) throw new Error(`Failed to load items: ${itemsError.message}`);
+        itemsData = i ?? [];
 
-      // Load layers
-      const { data: layersData, error: layersError } = await supabase
-        .from('session_layers')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: false });
-
-      if (layersError) throw new Error(`Failed to load layers: ${layersError.message}`);
+        const { data: l, error: layersError } = await supabase
+          .from('session_layers')
+          .select('*')
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: false });
+        if (layersError) throw new Error(`Failed to load layers: ${layersError.message}`);
+        layersData = (l ?? []) as SessionLayer[];
+      }
 
       // Determine user role
-      const userRole = determineUserRole(sessionData as Session, currentUser, isGuest);
+      const userRole = determineUserRole(sessionData, currentUser, isGuest);
 
-      const items = (itemsData || []) as unknown as SessionItem[];
+      const items = itemsData as unknown as SessionItem[];
 
       set({
         sessionId,
-        session: sessionData as Session,
+        session: sessionData,
         items,
         currentIndex: sessionData.current_song_index || 0,
         userRole,
         currentUser,
-        layers: (layersData || []) as SessionLayer[],
+        layers: layersData,
         isLoading: false,
       });
 
       // Initialize layer visibility — own layer ON, others OFF by default
-      const visibleLayers = (layersData || []).reduce((acc, layer) => {
+      const visibleLayers = layersData.reduce((acc, layer) => {
         acc[layer.id] = layer.created_by === currentUser?.id;
         return acc;
       }, {} as Record<string, boolean>);
@@ -405,7 +426,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     set((state) => ({
       items: state.items.map((item) =>
         item.song_form_id === songFormId && item.song_form
-          ? { ...item, song_form: { ...item.song_form, ...data } }
+          ? ({ ...item, song_form: { ...item.song_form, ...data } } as SessionItem)
           : item
       ),
     }));
@@ -425,7 +446,7 @@ export const useSessionPlayerStore = create<SessionPlayerStore>((set, get) => ({
     set((state) => ({
       items: state.items.map((item) =>
         item.id === sessionSongId
-          ? { ...item, song_form_id: newForm.id, song_form: newForm }
+          ? ({ ...item, song_form_id: newForm.id, song_form: newForm } as unknown as SessionItem)
           : item
       ),
     }));

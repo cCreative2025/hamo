@@ -22,7 +22,7 @@ interface ParticipantStore {
     participantId: string,
     status: 'connected' | 'disconnected' | 'offline'
   ) => Promise<void>;
-  subscribeToParticipants: (sessionId: string) => void;
+  subscribeToParticipants: (sessionId: string) => () => void;
 }
 
 export const useParticipantStore = create<ParticipantStore>((set) => ({
@@ -55,7 +55,7 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
-        .from('participants')
+        .from('session_participants')
         .insert([
           {
             session_id: sessionId,
@@ -89,7 +89,7 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase
-        .from('participants')
+        .from('session_participants')
         .delete()
         .eq('session_id', sessionId)
         .eq('user_id', user.id);
@@ -116,7 +116,7 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
   ) => {
     try {
       const { error } = await supabase
-        .from('participants')
+        .from('session_participants')
         .update({
           connection_status: status,
           last_activity: new Date().toISOString(),
@@ -144,27 +144,42 @@ export const useParticipantStore = create<ParticipantStore>((set) => ({
   },
 
   subscribeToParticipants: (sessionId: string) => {
-    supabase
-      .from(`participants:session_id=eq.${sessionId}`)
-      .on('*', (payload) => {
-        if (payload.eventType === 'INSERT') {
-          set((state) => ({
-            participants: [...state.participants, payload.new as Participant],
-          }));
-        } else if (payload.eventType === 'UPDATE') {
-          set((state) => ({
-            participants: state.participants.map((p) =>
-              p.id === payload.new.id ? payload.new : p
-            ),
-          }));
-        } else if (payload.eventType === 'DELETE') {
-          set((state) => ({
-            participants: state.participants.filter(
-              (p) => p.id !== payload.old.id
-            ),
-          }));
+    const channel = supabase
+      .channel(`participants:${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'session_participants',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            set((state) => ({
+              participants: [...state.participants, payload.new as Participant],
+            }));
+          } else if (payload.eventType === 'UPDATE') {
+            set((state) => ({
+              participants: state.participants.map((p) =>
+                p.id === (payload.new as Participant).id
+                  ? (payload.new as Participant)
+                  : p
+              ),
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            set((state) => ({
+              participants: state.participants.filter(
+                (p) => p.id !== (payload.old as Participant).id
+              ),
+            }));
+          }
         }
-      })
+      )
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   },
 }));
