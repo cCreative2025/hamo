@@ -11,8 +11,9 @@ const getAuthState = () => useAuthStore.getState();
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { loginWithKakao, isLoading, error } = useAuthStore();
+  const { loginWithKakao, error } = useAuthStore();
   const [checking, setChecking] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const oauthError = searchParams.get('error');
 
   useEffect(() => {
@@ -32,10 +33,11 @@ function LoginForm() {
 
   const handleKakao = async () => {
     localStorage.setItem(AUTO_LOGIN_KEY, 'true');
+    setSubmitting(true);
     try {
       await loginWithKakao();
     } catch {
-      /* error는 store에 저장됨 */
+      setSubmitting(false);
     }
   };
 
@@ -73,13 +75,13 @@ function LoginForm() {
         <button
           type="button"
           onClick={handleKakao}
-          disabled={isLoading}
+          disabled={submitting}
           className="w-full bg-[#FEE500] hover:bg-[#FDD835] disabled:opacity-50 text-[#191919] font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12 3C6.48 3 2 6.58 2 11c0 2.85 1.86 5.35 4.66 6.78l-1.18 4.32c-.1.36.31.65.62.45L11.36 19c.21.01.42.02.64.02 5.52 0 10-3.58 10-8s-4.48-8-10-8z" />
           </svg>
-          {isLoading ? '이동 중...' : '카카오로 시작하기'}
+          {submitting ? '이동 중...' : '카카오로 시작하기'}
         </button>
 
         <p className="text-neutral-400 text-xs text-center mt-6">

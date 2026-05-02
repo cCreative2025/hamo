@@ -152,13 +152,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   loginWithKakao: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (error) throw error;
+      // 일부 환경에서 자동 리다이렉트가 일어나지 않을 때를 대비해 명시적으로 이동.
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      throw new Error('OAuth URL이 반환되지 않았습니다. Supabase 설정을 확인해주세요.');
     } catch (error) {
       set({
         error: humanizeAuthError(error, '카카오 로그인 실패'),
