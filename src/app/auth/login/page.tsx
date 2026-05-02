@@ -1,38 +1,25 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 
-// Zustand 스토어 직접 접근 (리액트 외부)
-const getAuthState = () => useAuthStore.getState();
+const AUTO_LOGIN_KEY = 'hamo_auto_login';
 
-const SAVED_EMAIL_KEY = 'hamo_saved_email';
-const AUTO_LOGIN_KEY  = 'hamo_auto_login';
+const getAuthState = () => useAuthStore.getState();
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, isLoading, error } = useAuthStore();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  const [autoLogin, setAutoLogin] = useState(false);
+  const { loginWithKakao, isLoading, error } = useAuthStore();
   const [checking, setChecking] = useState(true);
-  const resetSuccess = searchParams.get('reset') === 'success';
+  const oauthError = searchParams.get('error');
 
-  // 저장된 설정 불러오기 + 자동로그인 체크
   useEffect(() => {
-    const savedEmail = localStorage.getItem(SAVED_EMAIL_KEY);
-    const savedAuto  = localStorage.getItem(AUTO_LOGIN_KEY) === 'true';
-    if (savedEmail) { setEmail(savedEmail); setRememberMe(true); }
-    setAutoLogin(savedAuto);
-
+    const savedAuto = localStorage.getItem(AUTO_LOGIN_KEY) === 'true';
     const check = async () => {
       if (savedAuto) {
-        // 자동 로그인 ON일 때만 세션 확인
         await getAuthState().checkAuth();
-        // checkAuth() 결과만 신뢰 — 스토어 외부 상태 변화 무시
         if (getAuthState().isAuthenticated) {
           router.replace('/sheets');
           return;
@@ -43,23 +30,15 @@ function LoginForm() {
     check();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem(AUTO_LOGIN_KEY, autoLogin ? 'true' : 'false');
-    if (rememberMe) {
-      localStorage.setItem(SAVED_EMAIL_KEY, email);
-    } else {
-      localStorage.removeItem(SAVED_EMAIL_KEY);
-    }
+  const handleKakao = async () => {
+    localStorage.setItem(AUTO_LOGIN_KEY, 'true');
     try {
-      await login(email, password);
-      router.push('/sheets');
+      await loginWithKakao();
     } catch {
-      // error는 store에 저장됨
+      /* error는 store에 저장됨 */
     }
   };
 
-  // 세션 확인 중 스피너
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-primary">
@@ -74,103 +53,38 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-primary">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-primary px-4">
       <div className="bg-white rounded-2xl shadow-soft-lg p-8 w-full max-w-md">
-        <div className="mb-8">
+        <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-neutral-900">Hamo</h1>
           <p className="text-neutral-500 mt-1.5 text-sm">악보 협업 앱</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-1.5">
-              이메일
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl text-neutral-900 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-              required
-            />
+        <p className="text-neutral-600 text-sm text-center mb-6">
+          카카오 계정으로 간편하게 로그인하세요
+        </p>
+
+        {(error || oauthError) && (
+          <div className="bg-error-50 text-error-700 px-4 py-3 rounded-xl text-sm mb-4">
+            {error || '로그인에 실패했습니다. 다시 시도해주세요.'}
           </div>
+        )}
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-1.5">
-              비밀번호
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl text-neutral-900 bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-              required
-            />
-          </div>
+        <button
+          type="button"
+          onClick={handleKakao}
+          disabled={isLoading}
+          className="w-full bg-[#FEE500] hover:bg-[#FDD835] disabled:opacity-50 text-[#191919] font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 3C6.48 3 2 6.58 2 11c0 2.85 1.86 5.35 4.66 6.78l-1.18 4.32c-.1.36.31.65.62.45L11.36 19c.21.01.42.02.64.02 5.52 0 10-3.58 10-8s-4.48-8-10-8z" />
+          </svg>
+          {isLoading ? '이동 중...' : '카카오로 시작하기'}
+        </button>
 
-          {/* 로그인 저장 + 자동 로그인 */}
-          <div className="flex items-center gap-5">
-            {([
-              { key: 'rememberMe', label: '로그인 저장',  value: rememberMe, set: setRememberMe },
-              { key: 'autoLogin',  label: '자동 로그인', value: autoLogin,   set: setAutoLogin  },
-            ] as const).map(({ key, label, value, set }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => set(v => !v)}
-                className="flex items-center gap-2 cursor-pointer select-none"
-              >
-                <div
-                  className={`flex items-center justify-center rounded border transition-colors flex-shrink-0 ${
-                    value ? 'bg-neutral-900 border-neutral-900' : 'bg-white border-neutral-300'
-                  }`}
-                  style={{ width: 18, height: 18 }}
-                >
-                  {value && (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-                <span className="text-sm text-neutral-600">{label}</span>
-              </button>
-            ))}
-          </div>
-
-          {resetSuccess && (
-            <div className="bg-success-50 text-success-700 px-4 py-3 rounded-xl text-sm">
-              비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-error-50 text-error-700 px-4 py-3 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-neutral-900 hover:bg-neutral-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-xl transition-colors"
-          >
-            {isLoading ? '로그인 중...' : '로그인'}
-          </button>
-        </form>
-
-        <div className="mt-6 flex flex-col items-center gap-2">
-          <a href="/auth/forgot-password" className="text-neutral-400 hover:text-neutral-600 text-sm">
-            비밀번호를 잊으셨나요?
-          </a>
-          <p className="text-neutral-500 text-sm">
-            계정이 없으신가요?{' '}
-            <a href="/auth/signup" className="text-primary-600 hover:underline font-medium">
-              가입하기
-            </a>
-          </p>
-        </div>
+        <p className="text-neutral-400 text-xs text-center mt-6">
+          로그인 시 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
+        </p>
       </div>
     </div>
   );

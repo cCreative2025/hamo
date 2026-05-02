@@ -18,6 +18,7 @@ interface AuthStore {
   // Auth methods
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
+  loginWithKakao: () => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   updateProfile: (name: string) => Promise<void>;
@@ -145,6 +146,25 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       throw error;
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  loginWithKakao: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'kakao',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      set({
+        error: humanizeAuthError(error, '카카오 로그인 실패'),
+        isLoading: false,
+      });
+      throw error;
     }
   },
 
