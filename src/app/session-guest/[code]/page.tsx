@@ -110,12 +110,12 @@ export default function GuestSessionPage() {
       {/* Header */}
       <div className="bg-white border-b border-neutral-200 px-5 py-4 sticky top-0">
         <div className="max-w-lg mx-auto flex items-center gap-3">
-          <span className="text-lg font-bold text-neutral-900">🎵 Hamo</span>
+          <span className="text-lg font-bold text-neutral-900">Hamo</span>
           <span className="text-neutral-300">|</span>
           <span className="text-sm text-neutral-600 truncate">{session.name}</span>
           <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
             session.status === 'active'
-              ? 'bg-green-100 text-green-700'
+              ? 'bg-success-100 text-success-700'
               : 'bg-neutral-100 text-neutral-500'
           }`}>
             {session.status === 'active' ? '진행 중' : '완료'}
@@ -171,14 +171,14 @@ export default function GuestSessionPage() {
               )}
             </div>
           ) : (
-            <div key={item.id} className="bg-blue-50 rounded-2xl border border-blue-100 px-4 py-3 flex items-start gap-3">
-              <span className="text-xs font-bold text-blue-200 w-5 mt-0.5">{i + 1}</span>
-              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div key={item.id} className="bg-secondary-50 rounded-2xl border border-secondary-100 px-4 py-3 flex items-start gap-3">
+              <span className="text-xs font-bold text-secondary-200 w-5 mt-0.5">{i + 1}</span>
+              <div className="w-8 h-8 rounded-lg bg-secondary-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <p className="text-sm text-blue-700 flex-1 leading-relaxed">
+              <p className="text-sm text-secondary-700 flex-1 leading-relaxed">
                 {item.ment_text || '(멘트 없음)'}
               </p>
             </div>

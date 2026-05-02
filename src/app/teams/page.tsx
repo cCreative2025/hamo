@@ -152,7 +152,7 @@ export default function TeamsPage() {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
+          <div className="mb-4 p-3 bg-error-50 dark:bg-error-950 border border-error-200 dark:border-error-800 rounded-lg text-error-700 dark:text-error-300 text-sm">
             {error}
           </div>
         )}
@@ -267,7 +267,7 @@ export default function TeamsPage() {
                               >
                                 <div className="flex items-center gap-2.5">
                                   <div className={`w-1.5 h-1.5 rounded-full ${
-                                    session.status === 'active' ? 'bg-green-500' : 'bg-neutral-300 dark:bg-neutral-600'
+                                    session.status === 'active' ? 'bg-success-500' : 'bg-neutral-300 dark:bg-neutral-600'
                                   }`} />
                                   <span className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
                                     {session.name}
@@ -299,7 +299,7 @@ export default function TeamsPage() {
         <form onSubmit={handleCreateTeam} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-              팀 이름 <span className="text-red-500">*</span>
+              팀 이름 <span className="text-error-500">*</span>
             </label>
             <input
               type="text"
@@ -320,7 +320,7 @@ export default function TeamsPage() {
               className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
             />
           </div>
-          {createError && <p className="text-sm text-red-500">{createError}</p>}
+          {createError && <p className="text-sm text-error-500">{createError}</p>}
           <div className="flex justify-end gap-3 pt-1">
             <Button type="button" variant="secondary" onClick={() => setShowCreateTeam(false)}>취소</Button>
             <Button type="submit" variant="primary" disabled={!createName.trim() || createLoading}>
@@ -347,7 +347,7 @@ export default function TeamsPage() {
             className="w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-mono text-2xl text-center tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-primary-500"
             autoFocus
           />
-          {joinError && <p className="text-sm text-red-500">{joinError}</p>}
+          {joinError && <p className="text-sm text-error-500">{joinError}</p>}
           <div className="flex justify-end gap-3 pt-1">
             <Button type="button" variant="secondary" onClick={() => setShowJoinModal(false)}>취소</Button>
             <Button type="submit" variant="primary" disabled={joinCode.length < 4 || joinLoading}>

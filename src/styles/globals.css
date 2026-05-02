@@ -86,10 +86,11 @@ select {
   overflow: hidden;
 }
 
+/* primary-400 (#ae9fff) → primary-300 (#c9c2ff) 파스텔 그라디언트 */
 .gradient-primary {
-  background: linear-gradient(135deg, #ae9fff, #ff7fac);
+  @apply bg-gradient-to-br from-primary-400 to-secondary-400;
 }
 
 .gradient-soft {
-  background: linear-gradient(135deg, #f6f5ff 0%, #fff5f8 50%, #f0fdf9 100%);
+  @apply bg-gradient-to-br from-primary-50 via-secondary-50 to-success-50;
 }

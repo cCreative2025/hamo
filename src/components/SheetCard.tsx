@@ -22,7 +22,7 @@ const SECTION_COLORS: Record<string, string> = {
 };
 
 function getSectionColor(type: string) {
-  return SECTION_COLORS[type] ?? 'bg-violet-100 text-violet-700';
+  return SECTION_COLORS[type] ?? 'bg-secondary-100 text-secondary-700';
 }
 
 // ─── 인풋 헬퍼 ───────────────────────────────────────────────────────────────
@@ -247,7 +247,7 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
                   )}
                   <Button
                     size="sm"
-                    variant="danger"
+                    variant="outline"
                     className="px-2"
                     title="수정"
                     onClick={() => { setDraft({ title: sheet.title, artist: sheet.artist ?? '', genre: sheet.genre ?? '', key: sheet.key ?? '', tempo: sheet.tempo ?? '', time_signature: sheet.time_signature ?? '', youtube_urls: sheet.youtube_urls ?? [] }); setEditing(true); }}
@@ -382,7 +382,7 @@ const YtTagList: React.FC<{ urls: YtLink[] }> = ({ urls }) => {
         <button
           key={i}
           onClick={() => setPreviewUrl(item.url)}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-500 text-xs font-medium hover:bg-red-100 transition-colors"
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-50 text-error-500 text-xs font-medium hover:bg-error-100 transition-colors"
         >
           <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
             <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>

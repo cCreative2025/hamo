@@ -186,7 +186,7 @@ export default function SessionDetailPage() {
   const saveFooter = isSessionCreator ? (
     <div className="max-w-2xl mx-auto w-full px-4 py-3 space-y-2">
       {saveError && (
-        <p className="text-xs text-red-500 text-center bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2">
+        <p className="text-xs text-error-500 text-center bg-error-50 dark:bg-error-900/20 rounded-xl px-3 py-2">
           {saveError}
         </p>
       )}
@@ -218,7 +218,7 @@ export default function SessionDetailPage() {
           </h1>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
             currentSession.status === 'active'
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+              ? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400'
               : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
           }`}>
             {currentSession.status === 'active' ? '진행 중' : '완료'}
@@ -238,7 +238,7 @@ export default function SessionDetailPage() {
               onClick={copyLink}
               className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
                 copied
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  ? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400'
                   : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
               }`}
             >
@@ -483,7 +483,7 @@ function AddGap({
           </button>
           <button
             onClick={() => onAddMent(index)}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold hover:opacity-80 transition-opacity"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-600 text-white text-xs font-semibold hover:opacity-80 transition-opacity"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -593,7 +593,7 @@ function SongRow({
       {!readOnly && (
         <button
           onClick={onRemove}
-          className="p-1.5 rounded-lg text-neutral-300 dark:text-neutral-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+          className="p-1.5 rounded-lg text-neutral-300 dark:text-neutral-600 hover:text-error-500 hover:bg-error-50 dark:hover:bg-error-900/20 transition-colors flex-shrink-0"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -624,16 +624,16 @@ function MentRow({
   readOnly?: boolean;
 }) {
   return (
-    <div className="flex items-start gap-2 px-4 py-3 bg-blue-50/50 dark:bg-blue-900/10">
+    <div className="flex items-start gap-2 px-4 py-3 bg-secondary-50/50 dark:bg-secondary-900/10">
       {/* Order number (readonly) or arrows (editable) */}
       {readOnly ? (
-        <span className="w-5 text-center text-xs text-blue-300 font-mono flex-shrink-0 mt-1">{index + 1}</span>
+        <span className="w-5 text-center text-xs text-secondary-300 font-mono flex-shrink-0 mt-1">{index + 1}</span>
       ) : (
       <div className="flex flex-col gap-0.5 flex-shrink-0 mt-1">
         <button
           onClick={onMoveUp}
           disabled={index === 0}
-          className="p-0.5 rounded text-blue-200 dark:text-blue-800 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-20 transition-colors"
+          className="p-0.5 rounded text-secondary-200 dark:text-secondary-800 hover:text-secondary-500 dark:hover:text-secondary-400 disabled:opacity-20 transition-colors"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -642,7 +642,7 @@ function MentRow({
         <button
           onClick={onMoveDown}
           disabled={index === total - 1}
-          className="p-0.5 rounded text-blue-200 dark:text-blue-800 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-20 transition-colors"
+          className="p-0.5 rounded text-secondary-200 dark:text-secondary-800 hover:text-secondary-500 dark:hover:text-secondary-400 disabled:opacity-20 transition-colors"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -652,8 +652,8 @@ function MentRow({
       )}
 
       {/* Icon */}
-      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-        <svg className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="w-7 h-7 rounded-lg bg-secondary-100 dark:bg-secondary-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <svg className="w-3.5 h-3.5 text-secondary-500 dark:text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
       </div>
@@ -677,7 +677,7 @@ function MentRow({
       {!readOnly && (
         <button
           onClick={onRemove}
-          className="p-1.5 rounded-lg text-blue-200 dark:text-blue-800 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0 mt-0.5"
+          className="p-1.5 rounded-lg text-secondary-200 dark:text-secondary-800 hover:text-error-500 hover:bg-error-50 dark:hover:bg-error-900/20 transition-colors flex-shrink-0 mt-0.5"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
