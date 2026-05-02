@@ -58,8 +58,8 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-primary px-4">
       <div className="bg-white rounded-2xl shadow-soft-lg p-8 w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-neutral-900">Hamo</h1>
-          <p className="text-neutral-500 mt-1.5 text-sm">악보 협업 앱</p>
+          <h1 className="type-display text-neutral-900">Hamo</h1>
+          <p className="type-caption text-neutral-500 mt-1.5">악보 협업 앱</p>
         </div>
 
         <p className="text-neutral-600 text-sm text-center mb-6">

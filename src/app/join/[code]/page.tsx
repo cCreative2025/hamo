@@ -79,8 +79,8 @@ export default function GuestJoinPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
       <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
-        <h1 className="text-3xl font-bold text-primary-600 mb-2">Hamo</h1>
-        <p className="text-neutral-600 mb-8">악보 협업 세션에 참여하세요</p>
+        <h1 className="type-display text-primary-600 mb-2">Hamo</h1>
+        <p className="type-body text-neutral-600 mb-8">악보 협업 세션에 참여하세요</p>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
@@ -91,7 +91,7 @@ export default function GuestJoinPage() {
         {sessionValid && (
           <form onSubmit={handleJoin} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
+              <label className="block type-label text-neutral-700 mb-2">
                 이름
               </label>
               <input

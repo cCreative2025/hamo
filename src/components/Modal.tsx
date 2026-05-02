@@ -54,7 +54,7 @@ export const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
-          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{title}</h2>
+          <h2 className="type-h2 text-neutral-900 dark:text-neutral-100">{title}</h2>
           {closeButton && (
             <button
               onClick={onClose}

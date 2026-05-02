@@ -48,7 +48,7 @@ export default function ProfilePage() {
   return (
     <MainLayout>
       <div className="max-w-lg mx-auto px-4 py-8">
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-6">프로필</h2>
+        <h2 className="type-h1 text-neutral-900 dark:text-neutral-100 mb-6">프로필</h2>
 
         {/* 아바타 */}
         <div className="flex items-center gap-4 mb-8">
@@ -58,15 +58,15 @@ export default function ProfilePage() {
             </span>
           </div>
           <div>
-            <p className="font-semibold text-neutral-900 dark:text-neutral-100">{currentUser.name}</p>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">{currentUser.email}</p>
+            <p className="type-body-sm text-neutral-900 dark:text-neutral-100">{currentUser.name}</p>
+            <p className="type-caption text-neutral-500 dark:text-neutral-400">{currentUser.email}</p>
           </div>
         </div>
 
         {/* 이름 수정 폼 */}
         <form onSubmit={handleSave} className="space-y-5">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+            <label htmlFor="name" className="block type-label text-neutral-700 dark:text-neutral-300 mb-1.5">
               이름
             </label>
             <input
@@ -80,7 +80,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+            <label className="block type-label text-neutral-700 dark:text-neutral-300 mb-1.5">
               이메일
             </label>
             <p className="px-4 py-2.5 border border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-950 text-sm">

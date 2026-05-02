@@ -64,13 +64,13 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-primary">
       <div className="bg-white rounded-2xl shadow-soft-lg p-8 w-full max-w-md">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-neutral-900">새 비밀번호 설정</h1>
-          <p className="text-neutral-500 mt-1.5 text-sm">새로운 비밀번호를 입력해주세요</p>
+          <h1 className="type-h1 text-neutral-900">새 비밀번호 설정</h1>
+          <p className="type-caption text-neutral-500 mt-1.5">새로운 비밀번호를 입력해주세요</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-1.5">
+            <label htmlFor="password" className="block type-label text-neutral-700 mb-1.5">
               새 비밀번호
             </label>
             <input
@@ -85,7 +85,7 @@ export default function ResetPasswordPage() {
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-1.5">
+            <label htmlFor="confirmPassword" className="block type-label text-neutral-700 mb-1.5">
               비밀번호 확인
             </label>
             <input

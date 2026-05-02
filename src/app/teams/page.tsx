@@ -139,7 +139,7 @@ export default function TeamsPage() {
       <div className="p-4 max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-neutral-900 dark:text-white">팀</h1>
+          <h1 className="type-h1 text-neutral-900 dark:text-white">팀</h1>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => setShowJoinModal(true)}>
               코드로 참여
@@ -193,7 +193,7 @@ export default function TeamsPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm text-neutral-900 dark:text-white">{team.name}</span>
+                          <span className="type-body-sm text-neutral-900 dark:text-white">{team.name}</span>
                           {isOwner(team) && (
                             <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 rounded-full">오너</span>
                           )}
@@ -241,7 +241,7 @@ export default function TeamsPage() {
                       {/* Sessions list */}
                       <div className="px-5 py-3">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">세션</span>
+                          <span className="type-h3 text-neutral-500">세션</span>
                           <Button
                             size="sm"
                             variant="primary"
@@ -298,7 +298,7 @@ export default function TeamsPage() {
       >
         <form onSubmit={handleCreateTeam} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+            <label className="block type-label text-neutral-700 dark:text-neutral-300 mb-1">
               팀 이름 <span className="text-error-500">*</span>
             </label>
             <input
@@ -311,7 +311,7 @@ export default function TeamsPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">설명 (선택)</label>
+            <label className="block type-label text-neutral-700 dark:text-neutral-300 mb-1">설명 (선택)</label>
             <textarea
               value={createDesc}
               onChange={(e) => setCreateDesc(e.target.value)}
@@ -387,7 +387,7 @@ export default function TeamsPage() {
         >
           <form onSubmit={handleCreateSession} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">세션 이름</label>
+              <label className="block type-label text-neutral-700 dark:text-neutral-300 mb-1">세션 이름</label>
               <input
                 type="text"
                 value={sessionName}

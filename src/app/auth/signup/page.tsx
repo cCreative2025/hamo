@@ -44,7 +44,7 @@ export default function SignupPage() {
                 d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-neutral-900 mb-2">이메일을 확인해주세요</h2>
+          <h2 className="type-h1 text-neutral-900 mb-2">이메일을 확인해주세요</h2>
           <p className="text-neutral-500 text-sm mb-1">
             <span className="font-medium text-neutral-700">{email}</span>로
           </p>
@@ -64,13 +64,13 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-primary">
       <div className="bg-white rounded-2xl shadow-soft-lg p-8 w-full max-w-md">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-neutral-900">Hamo</h1>
-          <p className="text-neutral-500 mt-1.5 text-sm">악보 협업 앱</p>
+          <h1 className="type-display text-neutral-900">Hamo</h1>
+          <p className="type-caption text-neutral-500 mt-1.5">악보 협업 앱</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-neutral-700 mb-1.5">
+            <label htmlFor="name" className="block type-label text-neutral-700 mb-1.5">
               이름
             </label>
             <input
@@ -84,7 +84,7 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-1.5">
+            <label htmlFor="email" className="block type-label text-neutral-700 mb-1.5">
               이메일
             </label>
             <input
@@ -98,7 +98,7 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-1.5">
+            <label htmlFor="password" className="block type-label text-neutral-700 mb-1.5">
               비밀번호
             </label>
             <input
@@ -112,7 +112,7 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-1.5">
+            <label htmlFor="confirmPassword" className="block type-label text-neutral-700 mb-1.5">
               비밀번호 확인
             </label>
             <input

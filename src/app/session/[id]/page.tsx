@@ -213,7 +213,7 @@ export default function SessionDetailPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold text-neutral-900 dark:text-white flex-1 truncate">
+          <h1 className="type-h1 text-neutral-900 dark:text-white flex-1 truncate">
             {currentSession.name}
           </h1>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -227,7 +227,7 @@ export default function SessionDetailPage() {
 
         {/* Guest Link */}
         <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 mb-4">
-          <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">객원 공유 링크</p>
+          <p className="type-h3 text-neutral-500 dark:text-neutral-400 mb-2">객원 공유 링크</p>
           <div className="flex items-center gap-2">
             <input
               readOnly
@@ -250,7 +250,7 @@ export default function SessionDetailPage() {
         {/* Team Selection — creator only */}
         {isSessionCreator && teams.length > 0 && (
           <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 mb-4">
-            <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">공유할 팀</p>
+            <p className="type-h3 text-neutral-500 dark:text-neutral-400 mb-2">공유할 팀</p>
             <select
               value={selectedTeamId}
               onChange={(e) => setSelectedTeamId(e.target.value)}
@@ -366,7 +366,7 @@ export default function SessionDetailPage() {
                     </svg>
                   </button>
                 )}
-                <h2 className="text-base font-bold text-neutral-900 dark:text-white">
+                <h2 className="type-h2 text-neutral-900 dark:text-white">
                   {pickerSheet ? pickerSheet.title : '곡 선택'}
                 </h2>
               </div>
@@ -569,8 +569,8 @@ function SongRow({
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{item.sheetTitle}</p>
-        <p className="text-xs text-neutral-400 truncate">
+        <p className="type-body-sm text-neutral-900 dark:text-white truncate">{item.sheetTitle}</p>
+        <p className="type-caption text-neutral-400 truncate">
           {[item.songFormName, item.artist].filter(Boolean).join(' · ') || '송폼 없음'}
         </p>
       </div>

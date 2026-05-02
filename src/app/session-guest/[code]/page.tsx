@@ -110,7 +110,7 @@ export default function GuestSessionPage() {
       {/* Header */}
       <div className="bg-white border-b border-neutral-200 px-5 py-4 sticky top-0">
         <div className="max-w-lg mx-auto flex items-center gap-3">
-          <span className="text-lg font-bold text-neutral-900">Hamo</span>
+          <span className="type-h1 text-neutral-900">Hamo</span>
           <span className="text-neutral-300">|</span>
           <span className="text-sm text-neutral-600 truncate">{session.name}</span>
           <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -139,7 +139,7 @@ export default function GuestSessionPage() {
 
       {/* Setlist */}
       <div className="max-w-lg mx-auto p-4 space-y-2">
-        <p className="text-xs font-semibold text-neutral-400 px-1 mb-3">
+        <p className="type-h3 text-neutral-400 px-1 mb-3">
           세트리스트 · {items.length}개
         </p>
 
@@ -157,10 +157,10 @@ export default function GuestSessionPage() {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-neutral-900 truncate">
+                <p className="type-body-sm text-neutral-900 truncate">
                   {item.sheet?.title ?? '(악보 없음)'}
                 </p>
-                <p className="text-xs text-neutral-400 truncate">
+                <p className="type-caption text-neutral-400 truncate">
                   {[item.song_form?.name, item.sheet?.artist].filter(Boolean).join(' · ') || '송폼 없음'}
                 </p>
               </div>

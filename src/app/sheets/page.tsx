@@ -64,7 +64,7 @@ export default function SheetsPage() {
       <div className="p-6 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-neutral-900">악보 관리</h1>
+          <h1 className="type-h1 text-neutral-900">악보 관리</h1>
           <Button
             variant={showUploader ? 'secondary' : 'primary'}
             onClick={() => { setShowUploader(!showUploader); setUploadError(null); }}
@@ -193,7 +193,7 @@ export default function SheetsPage() {
             {groupKeys.map((initial) => (
               <section key={initial}>
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="text-2xl font-bold text-primary-500">{initial}</span>
+                  <span className="type-h1 text-primary-500">{initial}</span>
                   <div className="flex-1 h-px bg-neutral-200" />
                   <span className="text-xs text-neutral-400">{grouped[initial].length}곡</span>
                 </div>

@@ -79,7 +79,7 @@ export default function SessionsPage() {
       <div className="p-4 max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold text-neutral-900 dark:text-white">세션</h1>
+          <h1 className="type-h1 text-neutral-900 dark:text-white">세션</h1>
           <Button
             size="sm"
             variant="primary"
@@ -169,10 +169,10 @@ export default function SessionsPage() {
                     onClick={() => router.push(`/session/${session.id}`)}
                     className="block text-left w-full"
                   >
-                    <p className="font-semibold text-sm text-neutral-900 dark:text-white leading-snug line-clamp-2">
+                    <p className="type-body-sm text-neutral-900 dark:text-white leading-snug line-clamp-2">
                       {session.name}
                     </p>
-                    <p className="text-xs text-neutral-400 mt-1.5">
+                    <p className="type-caption text-neutral-400 mt-1.5">
                       {new Date(session.started_at).toLocaleDateString('ko-KR', {
                         month: 'short',
                         day: 'numeric',
@@ -228,7 +228,7 @@ export default function SessionsPage() {
         >
           <div className="bg-white dark:bg-neutral-900 w-full max-w-lg rounded-t-3xl">
             <div className="flex items-center justify-between px-5 pt-5 pb-4">
-              <h2 className="text-base font-bold text-neutral-900 dark:text-white">새 세션</h2>
+              <h2 className="type-h2 text-neutral-900 dark:text-white">새 세션</h2>
               <button
                 onClick={() => { setShowCreate(false); setName(''); setSelectedTeamId(''); }}
                 className="p-1.5 rounded-lg text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
@@ -241,7 +241,7 @@ export default function SessionsPage() {
 
             <div className="px-5 space-y-3 pb-2">
               <div>
-                <label className="block text-xs font-semibold text-neutral-500 mb-1.5">세션 이름</label>
+                <label className="block type-h3 text-neutral-500 mb-1.5">세션 이름</label>
                 <input
                   type="text"
                   value={name}
@@ -256,7 +256,7 @@ export default function SessionsPage() {
               {/* Team selector */}
               {teams.length > 0 && (
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-500 mb-1.5">팀 공유 (선택)</label>
+                  <label className="block type-h3 text-neutral-500 mb-1.5">팀 공유 (선택)</label>
                   <select
                     value={selectedTeamId}
                     onChange={(e) => setSelectedTeamId(e.target.value)}

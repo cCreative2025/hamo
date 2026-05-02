@@ -29,8 +29,8 @@ export const Header: React.FC<HeaderProps> = ({ title, showUserMenu = true }) =>
       <div className="flex items-center justify-between px-6 py-4">
         {/* Logo & Title */}
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">Hamo</h1>
-          {title && <h2 className="text-lg font-semibold text-neutral-700 dark:text-neutral-300">{title}</h2>}
+          <h1 className="type-display text-primary-600 dark:text-primary-400">Hamo</h1>
+          {title && <h2 className="type-h2 text-neutral-700 dark:text-neutral-300">{title}</h2>}
         </div>
 
         {/* User Menu */}
@@ -46,8 +46,8 @@ export const Header: React.FC<HeaderProps> = ({ title, showUserMenu = true }) =>
                 </span>
               </div>
               <div className="text-left hidden sm:block">
-                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{currentUser.name}</p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">{currentUser.email}</p>
+                <p className="type-body-sm text-neutral-900 dark:text-neutral-100">{currentUser.name}</p>
+                <p className="type-caption text-neutral-500 dark:text-neutral-400">{currentUser.email}</p>
               </div>
               <svg
                 className={`w-4 h-4 text-neutral-500 dark:text-neutral-400 transition-transform ${

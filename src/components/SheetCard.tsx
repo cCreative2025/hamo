@@ -28,7 +28,7 @@ function getSectionColor(type: string) {
 // ─── 인풋 헬퍼 ───────────────────────────────────────────────────────────────
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div>
-    <label className="block text-xs font-medium text-neutral-500 mb-1">{label}</label>
+    <label className="block type-caption text-neutral-500 mb-1">{label}</label>
     {children}
   </div>
 );
@@ -110,9 +110,9 @@ export const SheetCard: React.FC<SheetCardProps> = ({ sheet, onDelete }) => {
             {formKeys.map(k => (
               <span key={k} className="flex-shrink-0 px-1 py-0.5 bg-primary-50 text-primary-500 rounded text-[10px] font-medium">{k}</span>
             ))}
-            <h3 className="text-base font-semibold text-neutral-900 truncate">{sheet.title}</h3>
+            <h3 className="type-body-sm text-neutral-900 truncate">{sheet.title}</h3>
           </div>
-          {sheet.artist && <p className="text-sm text-neutral-500 truncate">{sheet.artist}</p>}
+          {sheet.artist && <p className="type-caption text-neutral-500 truncate">{sheet.artist}</p>}
         </div>
         <svg
           className={`w-4 h-4 text-neutral-400 flex-shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}

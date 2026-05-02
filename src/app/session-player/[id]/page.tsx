@@ -89,10 +89,10 @@ function SessionPlayerContent() {
     return (
       <div className="flex flex-col items-center justify-center h-screen w-screen bg-neutral-50 dark:bg-neutral-900">
         <div className="text-center">
-          <p className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
+          <p className="type-h1 text-neutral-900 dark:text-white mb-2">
             세션을 불러올 수 없습니다
           </p>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
+          <p className="type-body text-neutral-600 dark:text-neutral-400 mb-6">
             {error || '세션이 존재하지 않습니다'}
           </p>
           <button

@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
                 d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-neutral-900 mb-2">이메일을 확인해주세요</h2>
+          <h2 className="type-h1 text-neutral-900 mb-2">이메일을 확인해주세요</h2>
           <p className="text-neutral-500 text-sm mb-1">
             <span className="font-medium text-neutral-700">{email}</span>로
           </p>
@@ -57,13 +57,13 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-primary">
       <div className="bg-white rounded-2xl shadow-soft-lg p-8 w-full max-w-md">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-neutral-900">비밀번호 찾기</h1>
-          <p className="text-neutral-500 mt-1.5 text-sm">가입한 이메일로 재설정 링크를 보내드립니다</p>
+          <h1 className="type-h1 text-neutral-900">비밀번호 찾기</h1>
+          <p className="type-caption text-neutral-500 mt-1.5">가입한 이메일로 재설정 링크를 보내드립니다</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-1.5">
+            <label htmlFor="email" className="block type-label text-neutral-700 mb-1.5">
               이메일
             </label>
             <input
