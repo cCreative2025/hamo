@@ -1,7 +1,7 @@
 // User-related types
 export interface User {
   id: string;
-  email: string;
+  email: string | null;
   name: string;
   avatar_url?: string;
   created_at: string;

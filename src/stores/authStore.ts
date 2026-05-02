@@ -59,11 +59,18 @@ const humanizeAuthError = (err: unknown, fallback: string): string => {
 };
 
 const upsertProfile = async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, string>; created_at?: string }) => {
+  const meta = authUser.user_metadata || {};
+  const name =
+    meta.name ||
+    meta.nickname ||
+    meta.preferred_username ||
+    (authUser.email ? authUser.email.split('@')[0] : '') ||
+    '사용자';
   await supabase.from('users').upsert({
     id: authUser.id,
-    email: authUser.email || '',
-    name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || '',
-    avatar_url: authUser.user_metadata?.avatar_url || null,
+    email: authUser.email || null,
+    name,
+    avatar_url: meta.avatar_url || meta.picture || null,
     created_at: authUser.created_at || new Date().toISOString(),
   }, { onConflict: 'id' });
 };
@@ -93,7 +100,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         await upsertProfile(data.user);
         const user: User = {
           id: data.user.id,
-          email: data.user.email || '',
+          email: data.user.email || null,
           name: data.user.user_metadata?.name || '',
           avatar_url: data.user.user_metadata?.avatar_url,
           created_at: data.user.created_at || new Date().toISOString(),
@@ -129,7 +136,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         await upsertProfile({ ...data.user, user_metadata: { name } });
         const user: User = {
           id: data.user.id,
-          email: data.user.email || '',
+          email: data.user.email || null,
           name: name,
           created_at: data.user.created_at || new Date().toISOString(),
         };
@@ -155,6 +162,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',
         options: {
+          // 카카오 비즈 앱 전환 전까지 account_email 권한이 없어 닉네임/프로필만 요청.
+          scopes: 'profile_nickname profile_image',
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
@@ -222,11 +231,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       if (session?.user) {
         await upsertProfile(session.user);
+        const meta = session.user.user_metadata || {};
         const user: User = {
           id: session.user.id,
-          email: session.user.email || '',
-          name: session.user.user_metadata?.name || '',
-          avatar_url: session.user.user_metadata?.avatar_url,
+          email: session.user.email || null,
+          name: meta.name || meta.nickname || meta.preferred_username || '사용자',
+          avatar_url: meta.avatar_url || meta.picture,
           created_at: session.user.created_at || new Date().toISOString(),
         };
         set({
